@@ -445,6 +445,16 @@ body {
   background: var(--border);
 }
 
+.guess-table tbody tr.sort-divider-row,
+.guess-table tbody tr.sort-divider-row:hover {
+  background: transparent !important;
+}
+
+.guess-table tbody tr.sort-divider-row td {
+  padding: 0 12px;
+  border-bottom: none;
+}
+
 /* ============================
    ACTION BUTTONS
    ============================ */

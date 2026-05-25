@@ -159,15 +159,38 @@ class GameState {
     this.gameNumber = 0;
     this.startTime = null;
     this.hintsUsed = 0;
+    this.isPractice = false;
+    this.savedDailyGN = 0;
   }
 
   init() {
-    this.gameNumber = DailyWord.getGameNumber();
-    const idx = DailyWord.getWordIndex(this.engine.getTotalWords());
-    this.targetWord = this.engine.words[idx];
     this.startTime = Date.now();
     this.loadProgress();
+    if (!this.targetWord) {
+      this.gameNumber = DailyWord.getGameNumber();
+      const idx = DailyWord.getWordIndex(this.engine.getTotalWords());
+      this.targetWord = this.engine.words[idx];
+      this.isPractice = false;
+      this.savedDailyGN = this.gameNumber;
+    }
     console.log(`[Game] #${this.gameNumber} — ${this.engine.getTotalWords()} words`);
+  }
+
+  startNewGame() {
+    this.isPractice = true;
+    this.gameNumber = "Practice";
+    this.guesses = [];
+    this.won = false;
+    this.hintsUsed = 0;
+    this.startTime = Date.now();
+    this.savedDailyGN = DailyWord.getGameNumber();
+
+    // Pick a random word
+    const totalWords = this.engine.getTotalWords();
+    const idx = Math.floor(Math.random() * totalWords);
+    this.targetWord = this.engine.words[idx];
+
+    this.saveProgress();
   }
 
   /** Submit a guess. Returns { guess } or { error } */
@@ -248,6 +271,9 @@ class GameState {
         won: this.won,
         startTime: this.startTime,
         hintsUsed: this.hintsUsed,
+        isPractice: this.isPractice,
+        targetWord: this.targetWord,
+        savedDailyGN: this.savedDailyGN || DailyWord.getGameNumber(),
       }));
     } catch (e) { }
   }
@@ -257,16 +283,32 @@ class GameState {
       const raw = localStorage.getItem(CONFIG.STORAGE_KEY_PROGRESS);
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (data.gameNumber === this.gameNumber) {
+      const currentDailyGN = DailyWord.getGameNumber();
+
+      if (data.gameNumber === currentDailyGN) {
+        this.gameNumber = data.gameNumber;
         this.guesses = data.guesses || [];
         this.won = data.won || false;
         this.startTime = data.startTime || Date.now();
         this.hintsUsed = data.hintsUsed || 0;
+        this.isPractice = false;
+        this.savedDailyGN = this.gameNumber;
+        this.targetWord = this.engine.words[DailyWord.getWordIndex(this.engine.getTotalWords())];
+      } else if (data.isPractice && data.savedDailyGN === currentDailyGN) {
+        this.gameNumber = "Practice";
+        this.guesses = data.guesses || [];
+        this.won = data.won || false;
+        this.startTime = data.startTime || Date.now();
+        this.hintsUsed = data.hintsUsed || 0;
+        this.isPractice = true;
+        this.targetWord = data.targetWord;
+        this.savedDailyGN = data.savedDailyGN;
       }
     } catch (e) { }
   }
 
   updateStats() {
+    if (this.isPractice) return;
     const stats = this.getStats();
     stats.played++;
     stats.won++;
@@ -299,7 +341,7 @@ class GameState {
 
   getShareText() {
     const lines = [
-      `🧠 ${CONFIG.GAME_NAME} #${this.gameNumber}`,
+      this.isPractice ? `🧠 ${CONFIG.GAME_NAME} (Practice Mode)` : `🧠 ${CONFIG.GAME_NAME} #${this.gameNumber}`,
       `🎯 Found in ${this.guesses.length} guess${this.guesses.length === 1 ? '' : 'es'}`,
       this.hintsUsed > 0 ? `💡 ${this.hintsUsed} hint${this.hintsUsed === 1 ? '' : 's'} used` : '',
       '',
@@ -368,6 +410,8 @@ class UIController {
     this.elWinBest     = this.$('#win-best-score');
     this.elWinStreak   = this.$('#win-streak');
     this.elBtnShare    = this.$('#btn-share');
+    this.elBtnNewGame  = this.$('#btn-newgame');
+    this.elBtnNewGameWin = this.$('#btn-newgame-win');
 
     // Game info
     this.elGameNumber  = this.$('#game-number');
@@ -396,6 +440,15 @@ class UIController {
     // Share
     this.elBtnShare.addEventListener('click', () => this.handleShare());
 
+    // New game buttons
+    const handleNewGame = () => this.handleNewGame();
+    if (this.elBtnNewGame) {
+      this.elBtnNewGame.addEventListener('click', handleNewGame);
+    }
+    if (this.elBtnNewGameWin) {
+      this.elBtnNewGameWin.addEventListener('click', handleNewGame);
+    }
+
     // Hint button
     this.$('#btn-hint').addEventListener('click', () => this.handleHint());
 
@@ -407,7 +460,7 @@ class UIController {
   initialRender() {
     // Game number
     if (this.elGameNumber) {
-      this.elGameNumber.textContent = `#${this.game.gameNumber}`;
+      this.elGameNumber.textContent = this.game.isPractice ? 'Practice' : `#${this.game.gameNumber}`;
     }
 
     // Game info benchmarks
@@ -425,7 +478,7 @@ class UIController {
       this.elApp.classList.add('app--won');
       this.elInput.disabled = true;
       this.elBtnGuess.disabled = true;
-      this.elInput.placeholder = "You found today's word!";
+      this.elInput.placeholder = this.game.isPractice ? "You found the secret word!" : "You found today's word!";
     }
 
     this.renderStats();
@@ -507,8 +560,22 @@ class UIController {
     this.elApp.classList.add('app--won');
     this.elInput.disabled = true;
     this.elBtnGuess.disabled = true;
-    this.elInput.placeholder = "Better luck tomorrow!";
+    this.elInput.placeholder = "Better luck next time!";
     this.showToast(`The word was: ${this.game.targetWord.toUpperCase()}`, 'info');
+  }
+
+  handleNewGame() {
+    this.game.startNewGame();
+
+    // Reset UI elements
+    this.elApp.classList.remove('app--won');
+    this.elInput.disabled = false;
+    this.elBtnGuess.disabled = false;
+    this.elInput.placeholder = "Enter a word…";
+    this.elInput.value = '';
+    this.clearHint();
+
+    this.initialRender();
   }
 
   /* --- Rendering (Semantle-style) --- */
@@ -531,17 +598,15 @@ class UIController {
     // Latest guess row
     html += this.renderRow(latest, totalWords, true);
 
-    html += `</tbody></table>`;
-
     // Sort divider (only if there are previous guesses)
     if (sorted.length > 0) {
-      html += `<div class="sort-divider">Sort &ndash; Similarity</div>`;
-      html += `<table class="guess-table"><tbody>`;
+      html += `<tr class="sort-divider-row"><td colspan="4"><div class="sort-divider">Sort &ndash; Similarity</div></td></tr>`;
       for (const g of sorted) {
         html += this.renderRow(g, totalWords, false);
       }
-      html += `</tbody></table>`;
     }
+
+    html += `</tbody></table>`;
 
     this.elGuessSection.innerHTML = html;
   }

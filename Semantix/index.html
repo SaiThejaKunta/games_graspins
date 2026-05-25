@@ -68,6 +68,7 @@
         <div class="action-bar">
           <button class="btn-action btn-action--hint" id="btn-hint">💡 Hint</button>
           <button class="btn-action" id="btn-giveup">🏳️ Give Up</button>
+          <button class="btn-action btn-action--newgame" id="btn-newgame">🔄 New Game</button>
         </div>
 
         <!-- STATS FOOTER -->
@@ -182,7 +183,10 @@
             <div class="win-stat__label">Streak</div>
           </div>
         </div>
-        <button class="btn-share" id="btn-share">📤 Share Results</button>
+        <div class="win-modal__actions" style="margin-top: 14px; display: flex; gap: 10px;">
+          <button class="btn-share" id="btn-share" style="flex: 1;">📤 Share Results</button>
+          <button class="btn-share btn-share--newgame" id="btn-newgame-win" style="flex: 1; background: var(--bg-hover); color: var(--text-primary); border: 2px solid var(--border);">🔄 New Game</button>
+        </div>
       </div>
     </div>
   </div>
