@@ -7,7 +7,7 @@
 // CONFIGURATION
 // ============================
 const CONFIG = {
-  GAME_NAME: 'Semant',
+  GAME_NAME: 'Semantix',
   STORAGE_KEY_PROGRESS: 'semant_progress_v2',
   STORAGE_KEY_STATS: 'semant_stats_v2',
   EPOCH: new Date(2025, 0, 1),
@@ -377,6 +377,626 @@ function getSimClass(score) {
 }
 
 // ============================
+// SEMANTIC GRAPH VISUALIZER
+// ============================
+class SemanticGraphVisualizer {
+  constructor(canvas, game) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.game = game;
+    this.nodes = new Map(); // word -> Node
+    this.edges = []; // { source, target }
+
+    // Zoom and pan
+    this.transform = { x: 0, y: 0, scale: 1.0 };
+
+    // Dragging / Interaction
+    this.draggedNode = null;
+    this.hoveredNode = null;
+    this.isPanning = false;
+    this.panStart = { x: 0, y: 0 };
+
+    // Physics parameters
+    this.kRepulsion = 1200;
+    this.kAttraction = 0.04;
+    this.d0 = 70; // natural spring length
+    this.gravity = 0.015;
+    this.friction = 0.85;
+
+    this.initEvents();
+    this.resize();
+    this.startSimulation();
+  }
+
+  resize() {
+    if (!this.canvas || !this.canvas.parentNode) return;
+    const rect = this.canvas.parentNode.getBoundingClientRect();
+    this.canvas.width = rect.width || 600;
+    this.canvas.height = 420;
+  }
+
+  rebuild() {
+    const targetWord = this.game.targetWord;
+    const guesses = this.game.guesses;
+    const won = this.game.won;
+    const totalWords = this.game.engine.getTotalWords();
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+
+    const newNodes = new Map();
+    const newEdges = [];
+
+    if (!targetWord) return;
+
+    // 1. Add Target Node (center, red ?)
+    newNodes.set(targetWord, {
+      id: targetWord,
+      label: won ? targetWord : '?',
+      isTarget: true,
+      isGuessed: won,
+      isMystery: false,
+      score: 100,
+      rank: 1,
+      x: this.nodes.has(targetWord) ? this.nodes.get(targetWord).x : cx,
+      y: this.nodes.has(targetWord) ? this.nodes.get(targetWord).y : cy,
+      vx: 0, vy: 0
+    });
+
+    // --- Helpers ---
+
+    // Find the most similar existing node in the graph for a given word
+    const findBestParent = (word) => {
+      let bestParent = targetWord;
+      let bestSim = -Infinity;
+      for (const [nodeId, node] of newNodes.entries()) {
+        if (nodeId === word) continue;
+        const sim = this.game.engine.getSimilarity(word, nodeId);
+        if (sim !== null && sim > bestSim) {
+          bestSim = sim;
+          bestParent = nodeId;
+        }
+      }
+      return { parentId: bestParent, similarity: bestSim };
+    };
+
+    // Find a bridge word between two endpoints
+    const findBridgeWord = (fromWord, toWord, excludeSet) => {
+      let bestWord = null;
+      let bestSim = -Infinity;
+      for (const w of this.game.engine.words) {
+        if (w === fromWord || w === toWord || w === targetWord) continue;
+        if (excludeSet.has(w)) continue;
+        const simToFrom = this.game.engine.getSimilarity(w, fromWord);
+        const simToTo = this.game.engine.getSimilarity(w, toWord);
+        if (simToFrom === null || simToTo === null) continue;
+        const combined = simToFrom + simToTo;
+        if (combined > bestSim) {
+          bestSim = combined;
+          bestWord = w;
+        }
+      }
+      return bestWord;
+    };
+
+    // Create a mystery node
+    const makeMysteryNode = (word, posX, posY) => {
+      const existing = this.nodes.get(word);
+      const simToTarget = this.game.engine.getSimilarity(word, targetWord) || 0;
+      const score = Math.round(simToTarget * 10000) / 100;
+      return {
+        id: word,
+        label: '?',
+        isTarget: false,
+        isGuessed: false,
+        isMystery: true,
+        score: score,
+        rank: totalWords,
+        x: existing ? existing.x : posX + (Math.random() - 0.5) * 30,
+        y: existing ? existing.y : posY + (Math.random() - 0.5) * 30,
+        vx: 0, vy: 0
+      };
+    };
+
+    const guessedSet = new Set(guesses.map(g => g.word));
+    const usedBridges = new Set();
+
+    // 2. Sort guesses by score descending so the most relevant words
+    //    get placed first, creating a better tree structure.
+    //    Highly relevant words anchor near the target, and less relevant
+    //    ones branch off from their nearest neighbor.
+    const sortedGuesses = [...guesses].sort((a, b) => b.score - a.score);
+
+    for (const g of sortedGuesses) {
+      const word = g.word;
+
+      // Handle winning guess
+      if (word === targetWord) {
+        const tNode = newNodes.get(targetWord);
+        if (tNode) { tNode.isGuessed = true; tNode.label = targetWord; }
+        continue;
+      }
+
+      // If this word already exists (was placed as a mystery node), reveal it
+      let existing = newNodes.get(word);
+      if (existing) {
+        existing.isMystery = false;
+        existing.isGuessed = true;
+        existing.label = word;
+        existing.score = g.score;
+        existing.rank = g.rank;
+        // Already connected via edges, skip edge creation
+        continue;
+      }
+
+      // Place new node
+      const oldNode = this.nodes.get(word);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 100 + Math.random() * 60;
+      newNodes.set(word, {
+        id: word,
+        label: word,
+        isTarget: false,
+        isGuessed: true,
+        isMystery: false,
+        score: g.score,
+        rank: g.rank,
+        x: oldNode ? oldNode.x : cx + Math.cos(angle) * dist,
+        y: oldNode ? oldNode.y : cy + Math.sin(angle) * dist,
+        vx: 0, vy: 0
+      });
+
+      // Cold word (score < 0): no edges, drifts to border
+      if (g.score < 0) continue;
+
+      // Find the best parent — the most similar node already in the graph
+      const { parentId, similarity } = findBestParent(word);
+
+      // Determine chain depth based on similarity to the parent
+      // High similarity to parent → direct link
+      // Lower similarity → bridge nodes to show the gap
+      const simPercent = Math.round(similarity * 10000) / 100;
+      let chainDepth;
+      if (simPercent >= 35) {
+        chainDepth = 0; // Direct connection, very related
+      } else if (simPercent >= 15) {
+        chainDepth = 1; // 1 mystery bridge
+      } else {
+        chainDepth = 2; // 2 mystery bridges, shows a bigger gap
+      }
+
+      if (chainDepth === 0) {
+        // Direct edge to best parent
+        newEdges.push({ source: parentId, target: word });
+      } else {
+        // Build a bridge chain: parent -> bridge(s) -> guess
+        let prevNodeId = parentId;
+        const localExclude = new Set([...usedBridges, ...guessedSet]);
+
+        for (let d = 0; d < chainDepth; d++) {
+          const bridgeWord = findBridgeWord(prevNodeId, word, localExclude);
+
+          if (bridgeWord) {
+            if (!newNodes.has(bridgeWord)) {
+              const prevN = newNodes.get(prevNodeId);
+              const guessN = newNodes.get(word);
+              const t = (d + 1) / (chainDepth + 1);
+              const bx = prevN.x * (1 - t) + guessN.x * t;
+              const by = prevN.y * (1 - t) + guessN.y * t;
+              newNodes.set(bridgeWord, makeMysteryNode(bridgeWord, bx, by));
+              usedBridges.add(bridgeWord);
+            }
+            localExclude.add(bridgeWord);
+            newEdges.push({ source: prevNodeId, target: bridgeWord });
+            prevNodeId = bridgeWord;
+          } else {
+            break; // No bridge found, connect directly
+          }
+        }
+        // Final edge to the guess word
+        newEdges.push({ source: prevNodeId, target: word });
+      }
+    }
+
+    this.nodes = newNodes;
+    this.edges = newEdges;
+  }
+
+  tick() {
+    const nodesArr = Array.from(this.nodes.values());
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+
+    // Repulsion
+    for (let i = 0; i < nodesArr.length; i++) {
+      const n1 = nodesArr[i];
+      for (let j = i + 1; j < nodesArr.length; j++) {
+        const n2 = nodesArr[j];
+        const dx = n2.x - n1.x;
+        const dy = n2.y - n1.y;
+        const distSq = dx * dx + dy * dy || 1;
+        const dist = Math.sqrt(distSq);
+
+        const force = this.kRepulsion / distSq;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+
+        if (n1 !== this.draggedNode) {
+          n1.vx -= fx;
+          n1.vy -= fy;
+        }
+        if (n2 !== this.draggedNode) {
+          n2.vx += fx;
+          n2.vy += fy;
+        }
+      }
+    }
+
+    // Attraction
+    for (const edge of this.edges) {
+      const n1 = this.nodes.get(edge.source);
+      const n2 = this.nodes.get(edge.target);
+      if (!n1 || !n2) continue;
+
+      const dx = n2.x - n1.x;
+      const dy = n2.y - n1.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      const force = this.kAttraction * (dist - this.d0);
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+
+      if (n1 !== this.draggedNode) {
+        n1.vx += fx;
+        n1.vy += fy;
+      }
+      if (n2 !== this.draggedNode) {
+        n2.vx -= fx;
+        n2.vy -= fy;
+      }
+    }
+
+    // Build a set of connected node IDs
+    const connectedNodes = new Set();
+    for (const edge of this.edges) {
+      connectedNodes.add(edge.source);
+      connectedNodes.add(edge.target);
+    }
+
+    // Gravity and updates
+    const cx = width / 2;
+    const cy = height / 2;
+    const padding = 20;
+    for (const n of nodesArr) {
+      if (n === this.draggedNode) {
+        n.x = Math.max(padding, Math.min(width - padding, n.x));
+        n.y = Math.max(padding, Math.min(height - padding, n.y));
+        continue;
+      }
+
+      if (connectedNodes.has(n.id) || n.isTarget) {
+        // Connected or target node: pull to center
+        n.vx += (cx - n.x) * this.gravity;
+        n.vy += (cy - n.y) * this.gravity;
+      } else {
+        // Isolated/cold word: pull to the nearest boundary edge
+        const dLeft = n.x;
+        const dRight = width - n.x;
+        const dTop = n.y;
+        const dBottom = height - n.y;
+        const minDist = Math.min(dLeft, dRight, dTop, dBottom);
+        const pullForce = 0.08;
+
+        if (minDist === dLeft) {
+          n.vx += (padding - n.x) * pullForce;
+        } else if (minDist === dRight) {
+          n.vx += (width - padding - n.x) * pullForce;
+        } else if (minDist === dTop) {
+          n.vy += (padding - n.y) * pullForce;
+        } else {
+          n.vy += (height - padding - n.y) * pullForce;
+        }
+      }
+
+      n.vx *= this.friction;
+      n.vy *= this.friction;
+      n.x += n.vx;
+      n.y += n.vy;
+
+      // Keep them strictly bounded within the canvas box
+      if (n.x < padding) { n.x = padding; n.vx = 0; }
+      if (n.x > width - padding) { n.x = width - padding; n.vx = 0; }
+      if (n.y < padding) { n.y = padding; n.vy = 0; }
+      if (n.y > height - padding) { n.y = height - padding; n.vy = 0; }
+    }
+  }
+
+  render() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.save();
+    this.ctx.translate(this.transform.x, this.transform.y);
+    this.ctx.scale(this.transform.scale, this.transform.scale);
+
+    // Draw Edges — knowledge graph style with glow and arrows
+    for (const edge of this.edges) {
+      const n1 = this.nodes.get(edge.source);
+      const n2 = this.nodes.get(edge.target);
+      if (!n1 || !n2) continue;
+
+      const dx = n2.x - n1.x;
+      const dy = n2.y - n1.y;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Determine edge style based on node types
+      const hasMystery = n1.isMystery || n2.isMystery;
+      const hasTarget = n1.isTarget || n2.isTarget;
+
+      // Edge color: gradient from source to target color
+      let edgeColor, glowColor;
+      if (hasMystery) {
+        edgeColor = 'rgba(59, 130, 246, 0.85)';
+        glowColor = 'rgba(59, 130, 246, 0.25)';
+      } else if (hasTarget) {
+        edgeColor = 'rgba(239, 68, 68, 0.85)';
+        glowColor = 'rgba(239, 68, 68, 0.2)';
+      } else {
+        edgeColor = 'rgba(148, 163, 184, 0.8)';
+        glowColor = 'rgba(148, 163, 184, 0.15)';
+      }
+
+      // Glow layer
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.moveTo(n1.x, n1.y);
+      this.ctx.lineTo(n2.x, n2.y);
+      this.ctx.strokeStyle = glowColor;
+      this.ctx.lineWidth = 8;
+      this.ctx.setLineDash([]);
+      this.ctx.stroke();
+      this.ctx.restore();
+
+      // Main edge line
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.moveTo(n1.x, n1.y);
+      this.ctx.lineTo(n2.x, n2.y);
+      this.ctx.strokeStyle = edgeColor;
+      this.ctx.lineWidth = hasMystery ? 2.5 : 3;
+      if (hasMystery) {
+        this.ctx.setLineDash([8, 5]);
+      } else {
+        this.ctx.setLineDash([]);
+      }
+      this.ctx.stroke();
+      this.ctx.restore();
+
+      // Arrowhead pointing toward target node
+      const arrowSize = 8;
+      const r2 = n2.isTarget ? 16 : 11;
+      const ax = n2.x - (dx / len) * (r2 + 4);
+      const ay = n2.y - (dy / len) * (r2 + 4);
+      const angle = Math.atan2(dy, dx);
+
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.moveTo(ax, ay);
+      this.ctx.lineTo(
+        ax - arrowSize * Math.cos(angle - Math.PI / 6),
+        ay - arrowSize * Math.sin(angle - Math.PI / 6)
+      );
+      this.ctx.lineTo(
+        ax - arrowSize * Math.cos(angle + Math.PI / 6),
+        ay - arrowSize * Math.sin(angle + Math.PI / 6)
+      );
+      this.ctx.closePath();
+      this.ctx.fillStyle = edgeColor;
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Nodes
+    for (const n of this.nodes.values()) {
+      const radius = n.isTarget ? 16 : 11;
+      let color = '#4f46e5';
+
+      if (n.isTarget) {
+        color = '#dc2626';
+      } else if (n.isMystery) {
+        color = '#3b82f6';
+      } else {
+        if (n.id === this.game.targetWord) {
+          color = '#22c55e';
+        } else if (n.score >= 35) {
+          color = '#f97316';
+        } else if (n.score >= 15) {
+          color = '#eab308';
+        } else {
+          color = '#9ca3af';
+        }
+      }
+
+      if (n.isTarget) {
+        this.ctx.beginPath();
+        this.ctx.arc(n.x, n.y, radius + 4, 0, Math.PI * 2);
+        this.ctx.fillStyle = 'rgba(220, 38, 38, 0.18)';
+        this.ctx.fill();
+      } else if (n.isMystery) {
+        this.ctx.beginPath();
+        this.ctx.arc(n.x, n.y, radius + 3, 0, Math.PI * 2);
+        this.ctx.fillStyle = 'rgba(59, 130, 246, 0.18)';
+        this.ctx.fill();
+      }
+
+      this.ctx.beginPath();
+      this.ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = color;
+      this.ctx.fill();
+
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = '#111827';
+      this.ctx.font = '600 11px Inter, sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'top';
+      this.ctx.fillText(n.label, n.x, n.y + radius + 4);
+    }
+
+    // Hover details
+    if (this.hoveredNode) {
+      const n = this.hoveredNode;
+      const text = n.isTarget ? 'Secret Word' : (n.isMystery ? 'Mystery Word' : n.id);
+      const scoreText = n.isMystery ? 'Similarity: ?' : `Similarity: ${n.score.toFixed(2)}`;
+      const rankText = n.isMystery ? 'Rank: ?' : `Rank: ${n.rank}/${this.game.engine.getTotalWords()}`;
+
+      this.ctx.save();
+      this.ctx.font = '500 10px Inter, sans-serif';
+      const w1 = this.ctx.measureText(text).width;
+      const w2 = this.ctx.measureText(scoreText).width;
+      const w3 = this.ctx.measureText(rankText).width;
+      const cardWidth = Math.max(w1, w2, w3) + 24;
+      const cardHeight = 54;
+
+      const rx = n.x - cardWidth / 2;
+      const ry = n.y - cardHeight - 20;
+
+      this.ctx.beginPath();
+      this.ctx.fillStyle = 'rgba(17, 24, 39, 0.9)';
+      if (this.ctx.roundRect) {
+        this.ctx.roundRect(rx, ry, cardWidth, cardHeight, 6);
+      } else {
+        this.ctx.rect(rx, ry, cardWidth, cardHeight);
+      }
+      this.ctx.fill();
+
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'top';
+      this.ctx.font = 'bold 11px Inter, sans-serif';
+      this.ctx.fillText(text, rx + cardWidth / 2, ry + 6);
+
+      this.ctx.font = '500 10px Inter, sans-serif';
+      this.ctx.fillText(scoreText, rx + cardWidth / 2, ry + 22);
+      this.ctx.fillText(rankText, rx + cardWidth / 2, ry + 36);
+      this.ctx.restore();
+    }
+
+    this.ctx.restore();
+  }
+
+  initEvents() {
+    const getMousePos = (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const rawX = clientX - rect.left;
+      const rawY = clientY - rect.top;
+
+      const worldX = (rawX - this.transform.x) / this.transform.scale;
+      const worldY = (rawY - this.transform.y) / this.transform.scale;
+      return { rawX, rawY, worldX, worldY };
+    };
+
+    const findNodeAt = (worldX, worldY) => {
+      for (const n of this.nodes.values()) {
+        const radius = n.isTarget ? 16 : 11;
+        const dx = n.x - worldX;
+        const dy = n.y - worldY;
+        if (dx * dx + dy * dy <= (radius + 6) * (radius + 6)) {
+          return n;
+        }
+      }
+      return null;
+    };
+
+    const handleDown = (e) => {
+      const pos = getMousePos(e);
+      const node = findNodeAt(pos.worldX, pos.worldY);
+
+      if (node) {
+        this.draggedNode = node;
+      } else {
+        this.isPanning = true;
+        this.panStart = { x: pos.rawX - this.transform.x, y: pos.rawY - this.transform.y };
+      }
+    };
+
+    const handleMove = (e) => {
+      const pos = getMousePos(e);
+      this.hoveredNode = findNodeAt(pos.worldX, pos.worldY);
+
+      if (this.draggedNode) {
+        this.draggedNode.x = pos.worldX;
+        this.draggedNode.y = pos.worldY;
+        this.draggedNode.vx = 0;
+        this.draggedNode.vy = 0;
+      } else if (this.isPanning) {
+        this.transform.x = pos.rawX - this.panStart.x;
+        this.transform.y = pos.rawY - this.panStart.y;
+      }
+    };
+
+    const handleUp = () => {
+      this.draggedNode = null;
+      this.isPanning = false;
+    };
+
+    this.canvas.addEventListener('mousedown', handleDown);
+    this.canvas.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+
+    this.canvas.addEventListener('touchstart', handleDown, { passive: true });
+    this.canvas.addEventListener('touchmove', handleMove, { passive: true });
+    window.addEventListener('touchend', handleUp);
+
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const pos = getMousePos(e);
+      const zoomFactor = 1.1;
+      const nextScale = e.deltaY < 0
+        ? Math.min(this.transform.scale * zoomFactor, 4.0)
+        : Math.max(this.transform.scale / zoomFactor, 0.25);
+
+      this.transform.x = pos.rawX - pos.worldX * nextScale;
+      this.transform.y = pos.rawY - pos.worldY * nextScale;
+      this.transform.scale = nextScale;
+    }, { passive: false });
+  }
+
+  zoom(factor) {
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    const worldX = (cx - this.transform.x) / this.transform.scale;
+    const worldY = (cy - this.transform.y) / this.transform.scale;
+
+    const nextScale = Math.max(0.25, Math.min(this.transform.scale * factor, 4.0));
+    this.transform.x = cx - worldX * nextScale;
+    this.transform.y = cy - worldY * nextScale;
+    this.transform.scale = nextScale;
+  }
+
+  resetView() {
+    this.transform = { x: 0, y: 0, scale: 1.0 };
+    const targetWord = this.game.targetWord;
+    if (this.nodes.has(targetWord)) {
+      const root = this.nodes.get(targetWord);
+      root.x = this.canvas.width / 2;
+      root.y = this.canvas.height / 2;
+    }
+  }
+
+  startSimulation() {
+    const loop = () => {
+      this.tick();
+      this.render();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+}
+
+// ============================
 // UI CONTROLLER
 // ============================
 class UIController {
@@ -388,34 +1008,47 @@ class UIController {
 
   cacheDOM() {
     this.$ = (sel) => document.querySelector(sel);
-    this.elApp         = this.$('.app');
-    this.elInput       = this.$('#guess-input');
-    this.elBtnGuess    = this.$('#btn-guess');
-    this.elHint        = this.$('#input-hint');
+    this.elApp = this.$('.app');
+    this.elInput = this.$('#guess-input');
+    this.elBtnGuess = this.$('#btn-guess');
+    this.elHint = this.$('#input-hint');
     this.elGuessSection = this.$('#guess-section');
-    this.elToastBox    = this.$('#toast-container');
+    this.elToastBox = this.$('#toast-container');
 
     // Stats footer
-    this.elStatPlayed  = this.$('#stat-played');
-    this.elStatWinPct  = this.$('#stat-win-pct');
-    this.elStatStreak  = this.$('#stat-streak');
+    this.elStatPlayed = this.$('#stat-played');
+    this.elStatWinPct = this.$('#stat-win-pct');
+    this.elStatStreak = this.$('#stat-streak');
 
     // Modals
     this.elHelpBackdrop = this.$('#help-modal');
-    this.elWinBackdrop  = this.$('#win-modal');
+    this.elWinBackdrop = this.$('#win-modal');
 
     // Win modal
-    this.elWinWord     = this.$('#win-word');
-    this.elWinGuesses  = this.$('#win-guesses');
-    this.elWinBest     = this.$('#win-best-score');
-    this.elWinStreak   = this.$('#win-streak');
-    this.elBtnShare    = this.$('#btn-share');
-    this.elBtnNewGame  = this.$('#btn-newgame');
+    this.elWinWord = this.$('#win-word');
+    this.elWinGuesses = this.$('#win-guesses');
+    this.elWinBest = this.$('#win-best-score');
+    this.elWinStreak = this.$('#win-streak');
+    this.elBtnShare = this.$('#btn-share');
+    this.elBtnNewGame = this.$('#btn-newgame');
     this.elBtnNewGameWin = this.$('#btn-newgame-win');
 
     // Game info
-    this.elGameNumber  = this.$('#game-number');
-    this.elGameInfo    = this.$('#game-info');
+    this.elGameNumber = this.$('#game-number');
+    this.elGameInfo = this.$('#game-info');
+
+    // Tabs & Graph elements
+    this.elTabTable = this.$('#tab-table');
+    this.elTabGraph = this.$('#tab-graph');
+    this.elTableView = this.$('#table-view-container');
+    this.elGraphView = this.$('#graph-view-container');
+    this.elCanvas = this.$('#graph-canvas');
+
+    // Hint dropdown elements
+    this.elBtnHint = this.$('#btn-hint');
+    this.elHintMenu = this.$('#hint-menu');
+    this.elBtnHintNear = this.$('#btn-hint-near');
+    this.elBtnHintMystery = this.$('#btn-hint-mystery');
   }
 
   bindEvents() {
@@ -449,11 +1082,66 @@ class UIController {
       this.elBtnNewGameWin.addEventListener('click', handleNewGame);
     }
 
-    // Hint button
-    this.$('#btn-hint').addEventListener('click', () => this.handleHint());
+    // Hint dropdown toggle
+    if (this.elBtnHint) {
+      this.elBtnHint.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleHintMenu();
+      });
+    }
+
+    // Hint items click handlers
+    if (this.elBtnHintNear) {
+      this.elBtnHintNear.addEventListener('click', () => {
+        this.hideHintMenu();
+        this.handleHintNear();
+      });
+    }
+    if (this.elBtnHintMystery) {
+      this.elBtnHintMystery.addEventListener('click', () => {
+        this.hideHintMenu();
+        this.handleHintMystery();
+      });
+    }
+
+    // Click outside to close hint menu
+    document.addEventListener('click', (e) => {
+      if (this.elHintMenu && !this.elHintMenu.contains(e.target) && e.target !== this.elBtnHint) {
+        this.hideHintMenu();
+      }
+    });
+
+    // Escape key to close hint menu
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.hideHintMenu();
+      }
+    });
 
     // Give up
     this.$('#btn-giveup').addEventListener('click', () => this.handleGiveUp());
+
+    // Tabs event listeners
+    if (this.elTabTable) {
+      this.elTabTable.addEventListener('click', () => this.switchTab('table'));
+    }
+    if (this.elTabGraph) {
+      this.elTabGraph.addEventListener('click', () => this.switchTab('graph'));
+    }
+
+    // Graph control buttons event listeners
+    const btnZoomIn = this.$('#graph-zoom-in');
+    const btnZoomOut = this.$('#graph-zoom-out');
+    const btnReset = this.$('#graph-reset');
+    if (btnZoomIn) {
+      btnZoomIn.addEventListener('click', () => this.visualizer && this.visualizer.zoom(1.2));
+    }
+    if (btnZoomOut) {
+      btnZoomOut.addEventListener('click', () => this.visualizer && this.visualizer.zoom(0.85));
+    }
+    if (btnReset) {
+      btnReset.addEventListener('click', () => this.visualizer && this.visualizer.resetView());
+    }
   }
 
   /* --- Initial render --- */
@@ -473,12 +1161,23 @@ class UIController {
       this.renderEmptyState();
     }
 
+    // Initialize visualizer if canvas is present
+    if (this.elCanvas) {
+      if (!this.visualizer) {
+        this.visualizer = new SemanticGraphVisualizer(this.elCanvas, this.game);
+      }
+      this.visualizer.rebuild();
+    }
+
     // Won state
     if (this.game.won) {
       this.elApp.classList.add('app--won');
       this.elInput.disabled = true;
       this.elBtnGuess.disabled = true;
       this.elInput.placeholder = this.game.isPractice ? "You found the secret word!" : "You found today's word!";
+      if (this.elBtnHint) this.elBtnHint.disabled = true;
+    } else {
+      if (this.elBtnHint) this.elBtnHint.disabled = false;
     }
 
     this.renderStats();
@@ -514,6 +1213,10 @@ class UIController {
     this.elInput.value = '';
     this.renderGuessList();
 
+    if (this.visualizer) {
+      this.visualizer.rebuild();
+    }
+
     if (guess.isWin) {
       this.handleWin();
     }
@@ -521,7 +1224,63 @@ class UIController {
     this.elInput.focus();
   }
 
-  handleHint() {
+  toggleHintMenu() {
+    if (this.game.won) return;
+    if (this.elHintMenu.classList.contains('visible')) {
+      this.hideHintMenu();
+    } else {
+      this.showHintMenu();
+    }
+  }
+
+  showHintMenu() {
+    if (this.game.won) return;
+    this.clearHint();
+
+    // Check mystery words count
+    const mysteryWords = this.getMysteryWords();
+    const count = mysteryWords.length;
+
+    if (this.elBtnHintMystery) {
+      if (count > 0) {
+        this.elBtnHintMystery.disabled = false;
+        this.elBtnHintMystery.textContent = `🕸️ Reveal Mystery Word (${count})`;
+      } else {
+        this.elBtnHintMystery.disabled = true;
+        this.elBtnHintMystery.textContent = `🕸️ Reveal Mystery Word (none)`;
+      }
+    }
+
+    this.elHintMenu.style.display = 'flex';
+    // Trigger repaint
+    this.elHintMenu.offsetHeight;
+    this.elHintMenu.classList.add('visible');
+    this.elBtnHint.setAttribute('aria-expanded', 'true');
+  }
+
+  hideHintMenu() {
+    if (!this.elHintMenu) return;
+    this.elHintMenu.classList.remove('visible');
+    this.elBtnHint.setAttribute('aria-expanded', 'false');
+    setTimeout(() => {
+      if (!this.elHintMenu.classList.contains('visible')) {
+        this.elHintMenu.style.display = 'none';
+      }
+    }, 150);
+  }
+
+  getMysteryWords() {
+    if (!this.visualizer || !this.visualizer.nodes) return [];
+    const list = [];
+    for (const [word, node] of this.visualizer.nodes.entries()) {
+      if (node.isMystery && !node.isGuessed && word !== this.game.targetWord) {
+        list.push(word);
+      }
+    }
+    return list;
+  }
+
+  handleHintNear() {
     if (this.game.won) return;
 
     this.clearHint();
@@ -536,6 +1295,46 @@ class UIController {
     this.renderGuessList();
     this.showToast(`💡 Hint: "${guess.word}" (score: ${guess.score.toFixed(2)})`, 'info');
 
+    if (this.visualizer) {
+      this.visualizer.rebuild();
+    }
+
+    if (guess.isWin) {
+      this.handleWin();
+    }
+  }
+
+  handleHintMystery() {
+    if (this.game.won) return;
+
+    this.clearHint();
+    const mysteryWords = this.getMysteryWords();
+    if (mysteryWords.length === 0) {
+      this.showHint("No mystery words on the graph to reveal!", true);
+      return;
+    }
+
+    // Pick a random mystery word
+    const randomIndex = Math.floor(Math.random() * mysteryWords.length);
+    const selectedWord = mysteryWords[randomIndex];
+
+    // Submit guess and increment hintsUsed
+    this.game.hintsUsed++;
+    const result = this.game.submitGuess(selectedWord, true);
+
+    if (result.error) {
+      this.showHint(result.error, true);
+      return;
+    }
+
+    const { guess } = result;
+    this.renderGuessList();
+    this.showToast(`💡 Revealed Mystery Word: "${guess.word}" (score: ${guess.score.toFixed(2)})`, 'info');
+
+    if (this.visualizer) {
+      this.visualizer.rebuild();
+    }
+
     if (guess.isWin) {
       this.handleWin();
     }
@@ -549,6 +1348,10 @@ class UIController {
     this.spawnConfetti();
     setTimeout(() => this.showWinModal(), 800);
     this.renderStats();
+
+    if (this.visualizer) {
+      this.visualizer.rebuild();
+    }
   }
 
   handleGiveUp() {
@@ -560,8 +1363,14 @@ class UIController {
     this.elApp.classList.add('app--won');
     this.elInput.disabled = true;
     this.elBtnGuess.disabled = true;
+    if (this.elBtnHint) this.elBtnHint.disabled = true;
+    this.hideHintMenu();
     this.elInput.placeholder = "Better luck next time!";
     this.showToast(`The word was: ${this.game.targetWord.toUpperCase()}`, 'info');
+
+    if (this.visualizer) {
+      this.visualizer.rebuild();
+    }
   }
 
   handleNewGame() {
@@ -574,8 +1383,44 @@ class UIController {
     this.elInput.placeholder = "Enter a word…";
     this.elInput.value = '';
     this.clearHint();
+    this.hideHintMenu();
+
+    if (this.visualizer) {
+      this.visualizer.resetView();
+    }
 
     this.initialRender();
+  }
+
+  switchTab(tab) {
+    if (tab === 'table') {
+      if (this.elTabTable) {
+        this.elTabTable.classList.add('tab-btn--active');
+        this.elTabTable.setAttribute('aria-selected', 'true');
+      }
+      if (this.elTabGraph) {
+        this.elTabGraph.classList.remove('tab-btn--active');
+        this.elTabGraph.setAttribute('aria-selected', 'false');
+      }
+      if (this.elTableView) this.elTableView.style.display = '';
+      if (this.elGraphView) this.elGraphView.style.display = 'none';
+    } else {
+      if (this.elTabGraph) {
+        this.elTabGraph.classList.add('tab-btn--active');
+        this.elTabGraph.setAttribute('aria-selected', 'true');
+      }
+      if (this.elTabTable) {
+        this.elTabTable.classList.remove('tab-btn--active');
+        this.elTabTable.setAttribute('aria-selected', 'false');
+      }
+      if (this.elTableView) this.elTableView.style.display = 'none';
+      if (this.elGraphView) this.elGraphView.style.display = '';
+
+      if (this.visualizer) {
+        this.visualizer.resize();
+        this.visualizer.rebuild();
+      }
+    }
   }
 
   /* --- Rendering (Semantle-style) --- */
@@ -781,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('semant_visited_v2', '1');
     }
   } catch (err) {
-    console.error('[Semant] Boot error:', err);
+    console.error('[Semantix] Boot error:', err);
     if (loaderEl) {
       loaderEl.innerHTML = `
         <div class="empty-state">
