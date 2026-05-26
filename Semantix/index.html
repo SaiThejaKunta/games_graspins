@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Semant — Guess the Word by Meaning</title>
-  <meta name="description" content="Semant is a daily word-guessing game. Use semantic clues to find the secret word.">
+  <title>Semantix — Guess the Word by Meaning</title>
+  <meta name="description" content="Semantix is a daily word-guessing game. Use semantic clues to find the secret word.">
   <meta name="theme-color" content="#f5f6f8">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
   <link rel="stylesheet" href="style.css">
@@ -29,7 +29,7 @@
         <header class="header">
           <div class="logo">
             <span class="logo__icon">🧠</span>
-            <h1 class="logo__text">Semant</h1>
+            <h1 class="logo__text">Semantix</h1>
             <span class="logo__badge" id="game-number">#0</span>
           </div>
           <div class="header__actions">
@@ -61,8 +61,34 @@
           <div id="input-hint" class="input-hint"></div>
         </section>
 
-        <!-- GUESS LIST (Semantle-style: latest on top, rest sorted by score) -->
-        <div id="guess-section" class="guess-section"></div>
+        <!-- VIEW TABS -->
+        <div class="tabs-container">
+          <button id="tab-table" class="tab-btn tab-btn--active" aria-selected="true" role="tab">📋 Table View</button>
+          <button id="tab-graph" class="tab-btn" aria-selected="false" role="tab">🕸️ Graph View</button>
+        </div>
+
+        <!-- TABLE VIEW -->
+        <div id="table-view-container" class="view-panel">
+          <!-- GUESS LIST (Semantle-style: latest on top, rest sorted by score) -->
+          <div id="guess-section" class="guess-section"></div>
+        </div>
+
+        <!-- GRAPH VIEW -->
+        <div id="graph-view-container" class="view-panel" style="display: none;">
+          <div class="graph-wrapper">
+            <div class="graph-controls">
+              <button class="graph-control-btn" id="graph-zoom-in" title="Zoom In">+</button>
+              <button class="graph-control-btn" id="graph-zoom-out" title="Zoom Out">−</button>
+              <button class="graph-control-btn" id="graph-reset" title="Fit to view">⛶</button>
+            </div>
+            <canvas id="graph-canvas" class="graph-canvas"></canvas>
+            <div class="graph-legend">
+              <span class="legend-item"><span class="legend-dot legend-dot--target"></span>Secret Word</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--guessed"></span>Guessed Word</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--mystery"></span>Mystery Word (?)</span>
+            </div>
+          </div>
+        </div>
 
         <!-- ACTION BUTTONS -->
         <div class="action-bar">
