@@ -86,13 +86,22 @@
                                 Word</span>
                             <span class="legend-item"><span class="legend-dot legend-dot--mystery"></span>Mystery Word
                                 (?)</span>
+                            <span class="legend-item"><span class="legend-line legend-line--solid"></span>Direct</span>
+                            <span class="legend-item"><span class="legend-line legend-line--dashed"></span>Via
+                                Mystery</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ACTION BUTTONS -->
                 <div class="action-bar">
-                    <button class="btn-action btn-action--hint" id="btn-hint">💡 Hint</button>
+                    <div class="hint-dropdown-container">
+                        <button class="btn-action btn-action--hint" id="btn-hint" aria-haspopup="true" aria-expanded="false">💡 Hint</button>
+                        <div class="hint-dropdown-menu" id="hint-menu" style="display: none;">
+                            <button class="hint-dropdown-item" id="btn-hint-near">🔍 Near Secret Word</button>
+                            <button class="hint-dropdown-item" id="btn-hint-mystery">🕸️ Reveal Mystery Word</button>
+                        </div>
+                    </div>
                     <button class="btn-action" id="btn-giveup">🏳️ Give Up</button>
                     <button class="btn-action btn-action--newgame" id="btn-newgame">🔄 New Game</button>
                 </div>
