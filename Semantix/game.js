@@ -31,8 +31,9 @@ class SimilarityEngine {
     }
     this.vectors = WORD_VECTORS;
     this.words = Object.keys(this.vectors);
+    this.targetWords = (typeof TARGET_WORDS !== 'undefined' && TARGET_WORDS.length > 0) ? TARGET_WORDS : this.words;
     this.loaded = true;
-    console.log(`[Engine] Loaded ${this.words.length} word vectors.`);
+    console.log(`[Engine] Loaded ${this.words.length} word vectors, ${this.targetWords.length} target words.`);
   }
 
   dotProduct(a, b) {
@@ -148,6 +149,68 @@ class DailyWord {
 }
 
 // ============================
+// INFLECTION & STEMMING HELPERS
+// ============================
+function stemsMatch(w1, w2) {
+  const norm = (w) => {
+    let s = w.toLowerCase().trim();
+    if (s.endsWith('ies')) s = s.slice(0, -3) + 'y';
+    else if (s.endsWith('es')) s = s.slice(0, -2);
+    else if (s.endsWith('s') && !s.endsWith('ss')) s = s.slice(0, -1);
+    
+    if (s.endsWith('ing')) s = s.slice(0, -3);
+    else if (s.endsWith('ed')) s = s.slice(0, -2);
+    
+    // Strip double consonants
+    if (s.length > 3 && s.slice(-1) === s.slice(-2, -1) && !['ee', 'oo', 'll', 'ss'].includes(s.slice(-2))) {
+      s = s.slice(0, -1);
+    }
+    // Strip trailing e
+    if (s.endsWith('e') && s.length > 3) {
+      s = s.slice(0, -1);
+    }
+    return s;
+  };
+  return norm(w1) === norm(w2);
+}
+
+function getLemma(word, isValidWord) {
+  let w = word.toLowerCase().trim();
+  if (isValidWord(w)) return w;
+  
+  // Try common singular/base forms
+  const candidates = [];
+  
+  if (w.endsWith('ies')) candidates.push(w.slice(0, -3) + 'y');
+  if (w.endsWith('es')) candidates.push(w.slice(0, -2));
+  if (w.endsWith('s') && !w.endsWith('ss')) candidates.push(w.slice(0, -1));
+  
+  if (w.endsWith('ing')) {
+    const stem = w.slice(0, -3);
+    candidates.push(stem);
+    candidates.push(stem + 'e');
+    if (stem.length > 2 && stem.slice(-1) === stem.slice(-2, -1)) {
+      candidates.push(stem.slice(0, -1));
+    }
+  }
+  if (w.endsWith('ed')) {
+    const stem = w.slice(0, -2);
+    candidates.push(stem);
+    candidates.push(stem + 'e');
+    if (stem.length > 2 && stem.slice(-1) === stem.slice(-2, -1)) {
+      candidates.push(stem.slice(0, -1));
+    }
+  }
+  
+  for (const cand of candidates) {
+    if (cand && isValidWord(cand)) {
+      return cand;
+    }
+  }
+  return w; // Fallback
+}
+
+// ============================
 // GAME STATE
 // ============================
 class GameState {
@@ -168,12 +231,13 @@ class GameState {
     this.loadProgress();
     if (!this.targetWord) {
       this.gameNumber = DailyWord.getGameNumber();
-      const idx = DailyWord.getWordIndex(this.engine.getTotalWords());
-      this.targetWord = this.engine.words[idx];
+      const pool = this.engine.targetWords;
+      const idx = DailyWord.getWordIndex(pool.length);
+      this.targetWord = pool[idx];
       this.isPractice = false;
       this.savedDailyGN = this.gameNumber;
     }
-    console.log(`[Game] #${this.gameNumber} — ${this.engine.getTotalWords()} words`);
+    console.log(`[Game] #${this.gameNumber} — ${this.engine.getTotalWords()} words, target: ${this.targetWord}`);
   }
 
   startNewGame() {
@@ -185,10 +249,10 @@ class GameState {
     this.startTime = Date.now();
     this.savedDailyGN = DailyWord.getGameNumber();
 
-    // Pick a random word
-    const totalWords = this.engine.getTotalWords();
-    const idx = Math.floor(Math.random() * totalWords);
-    this.targetWord = this.engine.words[idx];
+    // Pick a random word from targetWords
+    const pool = this.engine.targetWords;
+    const idx = Math.floor(Math.random() * pool.length);
+    this.targetWord = pool[idx];
 
     this.saveProgress();
   }
@@ -199,20 +263,32 @@ class GameState {
 
     if (!word) return { error: 'Type a word to guess' };
     if (!/^[a-z]+$/.test(word)) return { error: 'Letters only' };
-    if (!this.engine.isValidWord(word))
+    
+    // Resolve inflections/lemmas
+    const validWord = getLemma(word, (w) => this.engine.isValidWord(w));
+    
+    if (!this.engine.isValidWord(validWord))
       return { error: `"${word}" isn't in the vocabulary` };
-    if (this.guesses.some(g => g.word === word))
-      return { error: 'Already guessed!', duplicate: true };
+      
+    if (this.guesses.some(g => g.word === validWord))
+      return { error: `Already guessed "${validWord}"!`, duplicate: true };
+      
+    // Determine win by stem match or exact match
+    const isWin = (validWord === this.targetWord) || stemsMatch(validWord, this.targetWord);
+    const finalWord = isWin ? this.targetWord : validWord;
+    
+    if (this.guesses.some(g => g.word === finalWord))
+      return { error: `Already guessed "${finalWord}"!`, duplicate: true };
+      
     if (this.won) return { error: "Already won today!" };
 
-    const similarity = this.engine.getSimilarity(word, this.targetWord);
+    const similarity = this.engine.getSimilarity(finalWord, this.targetWord);
     // Score: raw cosine × 100, allows negative values
     const score = Math.round(similarity * 10000) / 100;
-    const rank = this.engine.getRank(word, this.targetWord);
-    const isWin = (word === this.targetWord);
+    const rank = this.engine.getRank(finalWord, this.targetWord);
 
     const guess = {
-      word,
+      word: finalWord,
       score,
       rank,
       similarity,
@@ -293,7 +369,8 @@ class GameState {
         this.hintsUsed = data.hintsUsed || 0;
         this.isPractice = false;
         this.savedDailyGN = this.gameNumber;
-        this.targetWord = this.engine.words[DailyWord.getWordIndex(this.engine.getTotalWords())];
+        const pool = this.engine.targetWords;
+        this.targetWord = pool[DailyWord.getWordIndex(pool.length)];
       } else if (data.isPractice && data.savedDailyGN === currentDailyGN) {
         this.gameNumber = "Practice";
         this.guesses = data.guesses || [];
