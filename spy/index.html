@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Who is the Spy? 🕵️</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* -- Card Flip Animation -- */
+        .card {
+            perspective: 1000px; /* Gives the 3D effect */
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.7s;
+            transform-style: preserve-3d;
+        }
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front,
+        .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem; /* 12px */
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="game-wrapper" class="w-full max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900">Who is the Spy? 🕵️</h1>
+            <p class="text-lg text-gray-600 mt-2">Uncover the spy hiding among you!</p>
+        </header>
+
+        <!-- Setup Screen -->
+        <div id="setup-screen" class="bg-white p-8 rounded-xl shadow-lg text-center">
+            <h2 class="text-2xl font-semibold mb-4">Game Setup</h2>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <label for="player-count" class="text-lg">Number of Players:</label>
+                <input type="number" id="player-count" min="3" max="12" value="4" class="w-24 p-2 border border-gray-300 rounded-lg text-center text-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                <button id="start-button" class="w-full sm:w-auto bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition-colors shadow-md">Start Game</button>
+            </div>
+             <p id="error-message" class="text-red-500 mt-4 h-5"></p>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <div id="card-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+                <!-- Cards will be generated here by JavaScript -->
+            </div>
+            <div class="text-center mt-8">
+                <button id="restart-button" class="bg-gray-700 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-800 transition-colors shadow-md">New Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Will hold the words fetched from the CSV
+        let allWords = [];
+        let availableWords = [];
+
+        // DOM Elements
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const playerCountInput = document.getElementById('player-count');
+        const cardGrid = document.getElementById('card-grid');
+        const errorMessage = document.getElementById('error-message');
+
+        // --- Word Loading Function ---
+        async function loadWords() {
+            try {
+                // Show loading state on the button
+                startButton.disabled = true;
+                startButton.textContent = 'Loading Words...';
+
+                // URL for the Google Sheet, published as a CSV
+                const sheetURL = 'https://docs.google.com/spreadsheets/d/1k3pE4dRKMqpACy6NCLhOkmeZZS0gj0TQ_8XCim6xt_k/export?format=csv';
+                const response = await fetch(sheetURL);
+
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.text();
+                
+                // Parse CSV: split by new line, slice to remove header, trim whitespace, and filter empty lines
+                allWords = data
+                    .split(/\r?\n/)
+                    .slice(1) 
+                    .map(word => word.trim())
+                    .filter(word => word.length > 0);
+                
+                if (allWords.length === 0) {
+                     throw new Error('Sheet is empty or formatted incorrectly.');
+                }
+
+                availableWords = [...allWords]; // Create a copy for the current session
+                
+                // Re-enable the button
+                startButton.disabled = false;
+                startButton.textContent = 'Start Game';
+
+            } catch (error) {
+                console.error("Failed to load or parse words from Google Sheet:", error);
+                errorMessage.textContent = 'Error: Could not load game words.';
+                startButton.textContent = 'Error Loading';
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', loadWords);
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+
+        function startGame() {
+            const playerCount = parseInt(playerCountInput.value, 10);
+
+            // Validate player count
+            if (playerCount < 3 || playerCount > 12) {
+                errorMessage.textContent = 'Please choose between 3 and 12 players.';
+                return;
+            }
+             errorMessage.textContent = '';
+
+
+            // --- Game Logic ---
+            // Check if there are any words left to play with
+            if (availableWords.length === 0) {
+                 if (allWords.length > 0) {
+                    // All words have been used, so reset the list for a new round
+                    console.log('All words used. Resetting list.');
+                    availableWords = [...allWords];
+                 } else {
+                    errorMessage.textContent = 'No words available to start the game.';
+                    return;
+                 }
+            }
+
+            // 1. Randomly select a word from the available list
+            const wordIndex = Math.floor(Math.random() * availableWords.length);
+            const chosenWord = availableWords[wordIndex];
+
+            // 2. Remove the chosen word to prevent repetition in the same session
+            availableWords.splice(wordIndex, 1);
+            
+            // 3. Randomly assign the spy
+            const spyIndex = Math.floor(Math.random() * playerCount);
+
+            // 4. Generate cards
+            cardGrid.innerHTML = ''; // Clear any old cards
+            for (let i = 0; i < playerCount; i++) {
+                const isSpy = (i === spyIndex);
+                const word = isSpy ? '' : chosenWord; // The spy does not get a word.
+                const role = isSpy ? 'SPY' : 'Civilian';
+                createCard(i + 1, word, role);
+            }
+
+            // Switch screens
+            setupScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+        }
+
+        function createCard(playerNumber, word, role) {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'card h-48 md:h-56 cursor-pointer group';
+            
+            // Different HTML for the back of the card based on the role
+            const cardBackHTML = role === 'SPY' ?
+                `<div class="card-back bg-white border-4 border-red-500 flex flex-col items-center justify-center p-4">
+                    <p class="text-3xl md:text-4xl font-bold text-center text-red-600">You are the SPY!</p>
+                    <p class="text-md mt-2 text-gray-600">Blend in and find the word.</p>
+                </div>` :
+                `<div class="card-back bg-white border-2 border-indigo-400 flex flex-col items-center justify-center p-4">
+                    <p class="text-sm uppercase font-semibold text-gray-500">Your role: Civilian</p>
+                    <p class="text-2xl md:text-3xl font-bold mt-2 text-center">${word}</p>
+                </div>`;
+
+
+            cardElement.innerHTML = `
+                <div class="card-inner shadow-lg">
+                    <!-- Front of the Card -->
+                    <div class="card-front bg-indigo-500 text-white flex flex-col items-center justify-center p-4 group-hover:bg-indigo-600 transition-colors">
+                        <p class="text-2xl font-bold">Player ${playerNumber}</p>
+                        <p class="text-sm mt-2">Click to reveal</p>
+                    </div>
+                    <!-- Back of the Card -->
+                    ${cardBackHTML}
+                </div>
+            `;
+
+            // Add click event listener to flip the card, then flip it back
+            const handleFlip = (event) => {
+                const card = event.currentTarget;
+
+                // If the card is already flipped (showing the back), flip it back and lock it.
+                if (card.classList.contains('flipped')) {
+                    card.classList.remove('flipped');
+
+                    // Update the front to show it has been revealed
+                    const cardFront = card.querySelector('.card-front');
+                    cardFront.classList.remove('bg-indigo-500', 'group-hover:bg-indigo-600');
+                    cardFront.classList.add('bg-gray-600');
+                    cardFront.innerHTML = `<p class="text-xl font-bold text-gray-300">REVEALED</p>`;
+                    
+                    // Make it unclickable by removing the cursor style and the event listener itself
+                    card.classList.remove('cursor-pointer', 'group');
+                    card.removeEventListener('click', handleFlip);
+                } else {
+                    // If the card is on its front, flip it to the back
+                    card.classList.add('flipped');
+                }
+            };
+
+            cardElement.addEventListener('click', handleFlip);
+
+            cardGrid.appendChild(cardElement);
+        }
+
+        function restartGame() {
+            // Instead of going back to the setup screen, just start a new game
+            // with the same number of players.
+            startGame();
+        }
+    </script>
+</body>
+</html>
+

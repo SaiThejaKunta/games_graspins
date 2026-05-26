@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F5EEDD">
+<title>Just One - Card generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #F5EEDD;
+    background-image:
+      radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+      radial-gradient(rgba(0,0,0,0.06) 1px, #F5EEDD 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: 0 0, 16px 16px;
+    color: #1a1a1a;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font-family: inherit; }
+  #app { position: relative; min-height: 100vh; }
+  .triangle { position: absolute; width: 0; height: 0; opacity: 0.25; pointer-events: none; z-index: 1; }
+  .container { position: relative; max-width: 780px; margin: 0 auto; padding: 32px 20px 60px; z-index: 2; }
+  .hidden { display: none !important; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes popIn { 0% { opacity: 0; transform: scale(0.7); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes bounceIn { 0% { transform: scale(0) rotate(-180deg); opacity: 0; } 50% { transform: scale(1.1) rotate(-20deg); } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+  @keyframes cardEntry { 0% { transform: rotate(-2deg) scale(0.95); opacity: 0; } 100% { transform: rotate(0) scale(1); opacity: 1; } }
+
+  .screen { animation: fadeIn 0.4s ease; }
+  .phase { animation: fadeIn 0.35s ease; }
+
+  /* Home */
+  #home { text-align: center; padding-top: 10vh; }
+  .title-jo {
+    font-family: 'Caprasimo', serif;
+    font-size: clamp(64px, 16vw, 140px);
+    line-height: 0.9; margin: 0; letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #E84A8C 0%, #F08A3E 50%, #F2C94C 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .subtitle { margin-top: 12px; font-size: 18px; color: #5a5142; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+  .lead { max-width: 420px; margin: 24px auto 36px; font-size: 16px; line-height: 1.6; color: #5a5142; }
+
+  .btn-primary {
+    font-family: 'Caprasimo', serif; font-size: 28px;
+    background: #1a1a1a; color: #F5EEDD; border: none;
+    padding: 18px 56px; border-radius: 999px; cursor: pointer;
+    box-shadow: 0 8px 0 #b89e5e, 0 12px 30px rgba(0,0,0,0.15);
+    letter-spacing: 0.02em;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-primary:hover { transform: scale(1.04); }
+  .btn-primary:active { transform: scale(0.97) translateY(4px); box-shadow: 0 4px 0 #b89e5e, 0 6px 16px rgba(0,0,0,0.15); }
+  .btn-primary.small { font-size: 22px; padding: 14px 38px; box-shadow: 0 6px 0 #b89e5e; }
+  .btn-primary.small:active { box-shadow: 0 3px 0 #b89e5e; }
+
+  .btn-secondary {
+    background: transparent; border: 2px solid #1a1a1a;
+    padding: 12px 28px; border-radius: 999px; font-size: 14px;
+    font-weight: 600; cursor: pointer; color: #1a1a1a;
+    letter-spacing: 0.04em;
+  }
+  .btn-secondary:hover { background: #1a1a1a; color: #F5EEDD; }
+
+  .btn-row { margin-top: 32px; display: flex; justify-content: center; gap: 32px; align-items: center; flex-wrap: wrap; }
+  .best-score { font-size: 14px; color: #5a5142; font-weight: 500; }
+  .best-score strong { color: #1a1a1a; font-size: 16px; }
+
+  /* Top bar */
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 6px; background: #d9cfb8; border: 1px solid #c0b59a; transition: all 0.2s; position: relative; }
+  .dot.current { width: 18px; background: #1a1a1a; border: none; }
+  .dot.won { background: #58B662; border: none; }
+  .dot.pass { background: #F2C94C; border: none; }
+  .dot.wrong, .dot.removed, .dot.demoted { background: #E64545; border: none; }
+  .dot.removed::after, .dot.demoted::after {
+    content: '×'; position: absolute; top: -3px; left: 0; right: 0;
+    text-align: center; font-size: 10px; color: #fff; line-height: 12px; font-weight: 700;
+  }
+  .dot.demoted::after { content: '−'; }
+  .won-count { font-size: 13px; color: #5a5142; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .won-count strong { color: #1a1a1a; font-size: 16px; }
+
+  .prompt-line { text-align: center; margin: 0 0 18px; font-size: 12px; color: #5a5142; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* Cover phase */
+  .cover { text-align: center; padding-top: 6vh; }
+  .cover-q { font-size: 80px; margin-bottom: 12px; font-family: 'Caprasimo', serif; color: #E84A8C; line-height: 1; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both; }
+  .cover h2 { font-family: 'Caprasimo', serif; font-size: clamp(34px, 7vw, 52px); margin: 0 0 12px; line-height: 1.1; color: #1a1a1a; }
+  .cover .cover-text { margin: 0 auto 36px; max-width: 380px; font-size: 16px; color: #5a5142; line-height: 1.5; }
+
+  /* Card */
+  .card { background: #fff; padding: 16px; border-radius: 18px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06); animation: cardEntry 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .word-row {
+    padding: 16px 22px; display: flex; align-items: center; gap: 18px;
+    font-family: 'Caprasimo', serif; font-size: clamp(22px, 5vw, 32px);
+    border-radius: 10px; line-height: 1.1;
+    transition: all 0.3s ease;
+    opacity: 0; animation: slideIn 0.35s ease forwards;
+  }
+  .word-row:nth-child(1) { animation-delay: 0s; }
+  .word-row:nth-child(2) { animation-delay: 0.08s; }
+  .word-row:nth-child(3) { animation-delay: 0.16s; }
+  .word-row:nth-child(4) { animation-delay: 0.24s; }
+  .word-row:nth-child(5) { animation-delay: 0.32s; }
+  .word-row .num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-family: 'DM Sans', sans-serif; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .row-1 { background: #F2C94C; color: #1a1a1a; }
+  .row-2 { background: #58B662; color: #fff; }
+  .row-3 { background: #E84A8C; color: #fff; }
+  .row-4 { background: #3E8FE0; color: #fff; }
+  .row-5 { background: #F08A3E; color: #fff; }
+
+  .word-row.dim { opacity: 0.28; transform: scale(0.96); padding: 12px 22px; font-size: clamp(18px, 4vw, 24px); animation: none; }
+  .word-row.dim .num { width: 30px; height: 30px; font-size: 14px; }
+  .word-row.chosen { padding: 26px 22px; font-size: clamp(30px, 7vw, 46px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); animation: none; opacity: 1; }
+  .word-row.chosen .num { width: 44px; height: 44px; font-size: 22px; }
+  .mystery-badge { margin-left: auto; font-size: 11px; font-family: 'DM Sans', sans-serif; background: rgba(0,0,0,0.25); padding: 4px 10px; border-radius: 999px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+  .row-1 .mystery-badge { color: #1a1a1a; background: rgba(0,0,0,0.18); }
+
+  /* Number picker */
+  .num-picker { margin-top: 28px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .num-btn {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 3px solid #1a1a1a;
+    font-family: 'Caprasimo', serif; font-size: 26px;
+    cursor: pointer; box-shadow: 0 4px 0 #1a1a1a;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .num-btn:hover { transform: translateY(-3px) scale(1.08); }
+  .num-btn:active { transform: scale(0.95) translateY(2px); box-shadow: 0 2px 0 #1a1a1a; }
+  .num-btn.n1 { background: #F2C94C; color: #1a1a1a; }
+  .num-btn.n2 { background: #58B662; color: #fff; }
+  .num-btn.n3 { background: #E84A8C; color: #fff; }
+  .num-btn.n4 { background: #3E8FE0; color: #fff; }
+  .num-btn.n5 { background: #F08A3E; color: #fff; }
+  .picker-hint { text-align: center; margin-top: 14px; font-size: 13px; color: #5a5142; }
+
+  /* Result panel */
+  .result-panel { margin-top: 28px; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .result-panel-title { margin: 0 0 14px; font-size: 13px; color: #5a5142; text-align: center; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .result-btn { border: none; padding: 14px 12px; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; letter-spacing: 0.02em; transition: transform 0.15s; }
+  .result-btn:hover { transform: translateY(-2px); }
+  .result-btn:active { transform: scale(0.96); }
+  .result-btn.won { background: #58B662; color: #fff; }
+  .result-btn.pass { background: #F2C94C; color: #1a1a1a; }
+  .result-btn.wrong { background: #E64545; color: #fff; }
+
+  /* Result screen */
+  .result-screen { text-align: center; padding-top: 8vh; }
+  .result-icon { width: 120px; height: 120px; border-radius: 50%; color: #fff; font-family: 'Caprasimo', serif; font-size: 72px; display: flex; align-items: center; justify-content: center; margin: 0 auto 28px; line-height: 1; animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both; }
+  .result-icon.won { background: #58B662; }
+  .result-icon.pass { background: #F2C94C; color: #1a1a1a; }
+  .result-icon.wrong { background: #E64545; }
+  .result-title { font-family: 'Caprasimo', serif; font-size: clamp(40px, 9vw, 64px); margin: 0; }
+  .result-title.won { color: #58B662; }
+  .result-title.pass { color: #ad8d20; }
+  .result-title.wrong { color: #E64545; }
+  .result-msg { margin: 12px auto 36px; max-width: 360px; font-size: 16px; color: #5a5142; line-height: 1.5; }
+
+  /* End screen */
+  .end-screen { text-align: center; padding-top: 6vh; }
+  .end-label { font-size: 13px; color: #5a5142; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; margin: 0; }
+  .end-score { margin: 16px 0 8px; animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both; }
+  .end-score-num { font-family: 'Caprasimo', serif; font-size: clamp(120px, 28vw, 220px); line-height: 0.9; }
+  .end-score-of { font-family: 'Caprasimo', serif; font-size: clamp(40px, 8vw, 60px); color: #5a5142; margin-left: 12px; }
+  .end-level-title { font-family: 'Caprasimo', serif; font-size: clamp(36px, 7vw, 54px); margin: 8px 0 4px; animation: fadeIn 0.5s ease 0.5s both; }
+  .end-level-msg { font-size: 18px; color: #5a5142; max-width: 420px; margin: 0 auto; line-height: 1.5; animation: fadeIn 0.5s ease 0.5s both; }
+  .new-best { display: inline-block; margin-top: 24px; background: #1a1a1a; color: #F5EEDD; padding: 8px 18px; border-radius: 999px; font-family: 'Caprasimo', serif; font-size: 18px; transform: rotate(-3deg); animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.8s both; }
+  .end-actions { margin-top: 40px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .levels-table { margin: 50px auto 0; max-width: 420px; text-align: left; }
+  .levels-table-title { font-size: 12px; color: #5a5142; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; margin: 0 0 12px; text-align: center; }
+  .levels-list { background: #fff; border-radius: 12px; padding: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); }
+  .level-row { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+  .level-row.current { background: #F5EEDD; }
+  .level-range { width: 50px; font-family: 'Caprasimo', serif; font-size: 18px; flex-shrink: 0; }
+
+  /* Modal */
+  .modal { position: fixed; inset: 0; background: rgba(26,26,26,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.3s ease; }
+  .modal-content { background: #F5EEDD; border-radius: 20px; padding: 28px; max-width: 520px; width: 100%; max-height: 85vh; overflow-y: auto; animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .modal-content h3 { font-family: 'Caprasimo', serif; font-size: 36px; margin: 0 0 16px; color: #E84A8C; }
+  .modal-content ol { padding-left: 22px; line-height: 1.7; font-size: 15px; margin: 0; }
+  .modal-content li { margin-bottom: 4px; }
+  .small-cap { margin: 16px 0 4px; font-size: 12px; color: #5a5142; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+  .modal-close { margin-top: 22px; width: 100%; background: #1a1a1a; color: #F5EEDD; border: none; padding: 12px; border-radius: 999px; cursor: pointer; font-family: 'Caprasimo', serif; font-size: 18px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="triangle" style="top:5%; left:4%; border-left:30px solid transparent; border-right:30px solid transparent; border-bottom:60px solid #F2C94C; transform: rotate(-20deg);"></div>
+  <div class="triangle" style="top:12%; right:6%; border-left:24px solid transparent; border-right:24px solid transparent; border-bottom:48px solid #58B662; transform: rotate(35deg);"></div>
+  <div class="triangle" style="bottom:8%; left:8%; border-left:35px solid transparent; border-right:35px solid transparent; border-bottom:70px solid #E64545; transform: rotate(180deg);"></div>
+  <div class="triangle" style="bottom:20%; right:4%; border-left:28px solid transparent; border-right:28px solid transparent; border-bottom:56px solid #3E8FE0; transform: rotate(160deg);"></div>
+  <div class="triangle" style="top:45%; left:2%; border-left:20px solid transparent; border-right:20px solid transparent; border-bottom:40px solid #F08A3E; transform: rotate(90deg);"></div>
+  <div class="triangle" style="top:60%; right:2%; border-left:22px solid transparent; border-right:22px solid transparent; border-bottom:44px solid #7B5BC4; transform: rotate(-60deg);"></div>
+
+  <div class="container">
+    <div id="home" class="screen">
+      <h1 class="title-jo">Just One</h1>
+      <p class="subtitle">Card generator</p>
+      <p class="lead">A digital deck for the cooperative party game. Keep your real easels and pencils, this just replaces the cards.</p>
+      <button class="btn-primary" id="btn-start">Start game</button>
+      <div class="btn-row">
+        <button class="btn-secondary" id="btn-rules">How to play</button>
+        <div class="best-score hidden" id="best-score-display">
+          <span style="opacity:0.7">Best score</span> <strong id="best-score-val"></strong>
+        </div>
+      </div>
+    </div>
+
+    <div id="playing" class="screen hidden">
+      <div class="topbar">
+        <div class="dots" id="dots"></div>
+        <div class="won-count">Won: <strong id="won-count">0</strong></div>
+      </div>
+
+      <div id="phase-cover" class="phase cover">
+        <div class="cover-q">?</div>
+        <h2>Active player,<br>look away!</h2>
+        <p class="cover-text">Everyone else: when the active player is not looking, tap below to reveal the card.</p>
+        <button class="btn-primary small" id="btn-reveal">Reveal the card</button>
+      </div>
+
+      <div id="phase-showing" class="phase hidden">
+        <p class="prompt-line">The card · Active player picks a number</p>
+        <div class="card" id="card-showing"></div>
+        <div class="num-picker" id="num-picker"></div>
+        <p class="picker-hint">Tap the number the active player called out</p>
+      </div>
+
+      <div id="phase-mystery" class="phase hidden">
+        <p class="prompt-line">Mystery word · Write your clues on the easels</p>
+        <div class="card" id="card-mystery"></div>
+        <div class="result-panel">
+          <p class="result-panel-title">After the guess, what happened?</p>
+          <div class="result-grid">
+            <button class="result-btn won" data-result="won">Correct</button>
+            <button class="result-btn pass" data-result="pass">Passed</button>
+            <button class="result-btn wrong" data-result="wrong">Wrong</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="phase-result" class="phase hidden result-screen">
+        <div class="result-icon" id="result-icon"></div>
+        <h2 class="result-title" id="result-title"></h2>
+        <p class="result-msg" id="result-msg"></p>
+        <button class="btn-primary small" id="btn-next">Next round</button>
+      </div>
+    </div>
+
+    <div id="ended" class="screen hidden end-screen">
+      <p class="end-label">Game over</p>
+      <div class="end-score">
+        <span class="end-score-num" id="end-score-num"></span><span class="end-score-of">/13</span>
+      </div>
+      <h2 class="end-level-title" id="end-level-title"></h2>
+      <p class="end-level-msg" id="end-level-msg"></p>
+      <div class="new-best hidden" id="new-best">New best score!</div>
+      <div class="end-actions">
+        <button class="btn-primary small" id="btn-play-again">Play again</button>
+        <button class="btn-secondary" id="btn-home">Home</button>
+      </div>
+      <div class="levels-table">
+        <p class="levels-table-title">Score levels</p>
+        <div class="levels-list" id="levels-list"></div>
+      </div>
+    </div>
+
+    <div id="rules-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>How to play</h3>
+        <ol>
+          <li>The active player picks a number from 1 to 5 without seeing the card. Everyone else sees the five words.</li>
+          <li>The active player closes their eyes. Everyone else writes a one-word clue on their easel.</li>
+          <li>Compare clues. Any identical or invalid clues are canceled (hide those easels).</li>
+          <li>The active player opens their eyes and makes one guess from the remaining clues, or passes.</li>
+          <li>Tap the result in the app. After 13 cards, check your score. Try to beat your record.</li>
+        </ol>
+        <p class="small-cap">Wrong guess penalty</p>
+        <p style="margin:0; font-size:14px; line-height:1.5;">A wrong guess loses two cards: this one plus the next in the deck (or a previously won card if the deck is empty).</p>
+        <button class="modal-close" id="btn-close-rules">Got it</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Word pool (curated, in the spirit of the game) ----
+const WORD_POOL = [
+  "Tiger","Lion","Elephant","Giraffe","Zebra","Monkey","Panda","Wolf","Fox","Rabbit",
+  "Squirrel","Hedgehog","Deer","Horse","Cow","Pig","Sheep","Chicken","Duck","Owl",
+  "Eagle","Penguin","Flamingo","Peacock","Swan","Parrot","Hummingbird","Butterfly","Bee","Ladybug",
+  "Dragonfly","Spider","Snail","Octopus","Dolphin","Whale","Shark","Seahorse","Jellyfish","Crab",
+  "Starfish","Turtle","Frog","Crocodile","Snake","Camel","Kangaroo","Koala","Sloth","Hippo",
+  "Rhino","Beaver","Otter","Bat","Hamster","Dinosaur","Unicorn","Dragon","Walrus","Toucan",
+  "Pizza","Spaghetti","Bread","Croissant","Donut","Cake","Cookie","Chocolate","Honey","Cheese",
+  "Butter","Bacon","Burger","Taco","Sushi","Pancake","Soup","Salad","Apple","Banana",
+  "Cherry","Grape","Lemon","Watermelon","Mango","Pineapple","Strawberry","Avocado","Coconut","Tomato",
+  "Carrot","Onion","Garlic","Mushroom","Pumpkin","Olive","Truffle","Coffee","Tea","Wine",
+  "Champagne","Cocktail","Lemonade","Cinnamon","Vanilla","Mustard","Ketchup","Sugar","Pepper","Ginger",
+  "Chair","Table","Pillow","Lamp","Candle","Clock","Mirror","Vase","Carpet","Window",
+  "Key","Knife","Spoon","Plate","Mug","Bottle","Kettle","Toaster","Fridge","Broom",
+  "Bucket","Sponge","Soap","Towel","Toothbrush","Scissors","Hammer","Screwdriver","Nail","Ladder",
+  "Rope","Magnet","Battery","Pencil","Eraser","Notebook","Stamp","Map","Compass","Telescope",
+  "Microscope","Camera","Binoculars","Glasses","Hat","Crown","Mask","Scarf","Belt","Glove",
+  "Boot","Dress","Umbrella","Wallet","Backpack","Suitcase","Bicycle","Skateboard","Helmet","Saddle",
+  "Trumpet","Drum","Piano","Guitar","Violin","Flute","Saxophone","Bell","Whistle","Headphones",
+  "Microphone","Radio","Television","Computer","Phone",
+  "Beach","Mountain","Forest","Jungle","Desert","Island","Volcano","Cave","Valley","River",
+  "Lake","Waterfall","Ocean","Glacier","Iceberg","Castle","Palace","Cathedral","Pyramid","Tower",
+  "Bridge","Tunnel","Statue","Fountain","Stadium","Theater","Cinema","Museum","Library","Bakery",
+  "Hospital","School","Factory","Farm","Garden","Park","Zoo","Aquarium","Circus","Airport",
+  "Lighthouse","Igloo","Skyscraper","Cabin","Treehouse",
+  "Sky","Cloud","Sun","Moon","Star","Galaxy","Comet","Rainbow","Lightning","Storm",
+  "Tornado","Hurricane","Earthquake","Wind","Snow","Fog","Ice","Fire","Smoke","Lava",
+  "Sand","Rock","Diamond","Gold","Silver","Leaf","Rose","Sunflower","Cactus","Aurora",
+  "Football","Basketball","Tennis","Golf","Volleyball","Boxing","Karate","Yoga","Running","Hiking",
+  "Climbing","Swimming","Surfing","Sailing","Skating","Skiing","Snowboarding","Dancing","Singing","Painting",
+  "Knitting","Cooking","Baking","Gardening","Fishing","Camping","Reading","Writing","Marathon","Bowling",
+  "Love","Joy","Fear","Magic","Spell","Secret","Mystery","Dream","Nightmare","Memory",
+  "Wisdom","Beauty","Strength","Time","Eternity","Birthday","Wedding","Christmas","Halloween","Vacation",
+  "Eyebrow","Tongue","Beard","Mustache","Elbow","Thumb","Heart","Brain","Skeleton","Knee",
+  "Doctor","Nurse","Pilot","Astronaut","Firefighter","Detective","Spy","Teacher","Chef","Farmer",
+  "Sailor","Scientist","Inventor","Painter","Musician","Singer","Dancer","Actor","Writer","Photographer",
+  "Carpenter","Plumber","Mechanic","Waiter","Bartender","Gardener","Hairdresser","Magician","Clown","Acrobat",
+  "Knight","Pirate","Cowboy","Ninja","Vampire","Witch","Wizard","Ghost","Zombie","Robot","Alien",
+  "Einstein","Mozart","Shakespeare","Picasso","Napoleon","Cleopatra","Gandhi","Stonehenge","Sphinx","Everest",
+  "Sahara","Hollywood","Titanic","Apollo","Mars","Jupiter"
+];
+
+// ---- Levels ----
+const LEVELS = [
+  { min: 0, max: 3, title: "Eek...", msg: "What happened?", color: "#E64545" },
+  { min: 4, max: 6, title: "Not bad.", msg: "You could certainly do better.", color: "#F08A3E" },
+  { min: 7, max: 8, title: "Average.", msg: "It is a good start. Try again!", color: "#F2C94C" },
+  { min: 9, max: 10, title: "Good.", msg: "A first step towards glory?", color: "#58B662" },
+  { min: 11, max: 11, title: "Very good!", msg: "You should be proud!", color: "#3E8FE0" },
+  { min: 12, max: 12, title: "Impressive!", msg: "You are almost champions!", color: "#E84A8C" },
+  { min: 13, max: 13, title: "Incredible!", msg: "A perfect score!", color: "#7B5BC4" },
+];
+
+// ---- State ----
+const state = {
+  deck: [],
+  statuses: new Array(13).fill('unplayed'),
+  currentIdx: 0,
+  chosenNum: null,
+  lastResult: null,
+  bestScore: null,
+  isNewBest: false,
+};
+
+// ---- Helpers ----
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function generateDeck(pool) {
+  const s = shuffle(pool);
+  const cards = [];
+  for (let i = 0; i < 13; i++) cards.push(s.slice(i * 5, i * 5 + 5));
+  return cards;
+}
+function getLevel(score) { return LEVELS.find(l => score >= l.min && score <= l.max) || LEVELS[0]; }
+
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function storageSet(key, val) {
+  try { localStorage.setItem(key, val); } catch (e) { /* silently fail in sandboxed contexts */ }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function restartAnim(el) {
+  if (!el) return;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
+}
+
+// ---- Rendering ----
+function showScreen(name) {
+  ['home','playing','ended'].forEach(id => {
+    document.getElementById(id).classList.toggle('hidden', id !== name);
+  });
+  restartAnim(document.getElementById(name));
+}
+
+function showPhase(name) {
+  ['cover','showing','mystery','result'].forEach(p => {
+    document.getElementById('phase-' + p).classList.toggle('hidden', p !== name);
+  });
+  restartAnim(document.getElementById('phase-' + name));
+}
+
+function renderTopbar() {
+  const dotsEl = document.getElementById('dots');
+  dotsEl.innerHTML = '';
+  state.statuses.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    if (s === 'unplayed' && i === state.currentIdx) d.classList.add('current');
+    else if (s !== 'unplayed') d.classList.add(s);
+    dotsEl.appendChild(d);
+  });
+  document.getElementById('won-count').textContent = state.statuses.filter(s => s === 'won').length;
+}
+
+function renderShowingCard() {
+  const cardEl = document.getElementById('card-showing');
+  cardEl.innerHTML = '';
+  const card = state.deck[state.currentIdx] || [];
+  card.forEach((word, i) => {
+    const row = document.createElement('div');
+    row.className = 'word-row row-' + (i + 1);
+    row.innerHTML = '<span class="num">' + (i + 1) + '</span><span>' + escapeHtml(word) + '</span>';
+    cardEl.appendChild(row);
+  });
+  restartAnim(cardEl);
+
+  const picker = document.getElementById('num-picker');
+  picker.innerHTML = '';
+  for (let n = 1; n <= 5; n++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn n' + n;
+    btn.textContent = n;
+    btn.addEventListener('click', () => handleNumberPick(n));
+    picker.appendChild(btn);
+  }
+}
+
+function renderMysteryCard() {
+  const cardEl = document.getElementById('card-mystery');
+  cardEl.innerHTML = '';
+  const card = state.deck[state.currentIdx] || [];
+  const chosen = state.chosenNum - 1;
+  card.forEach((word, i) => {
+    const row = document.createElement('div');
+    row.className = 'word-row row-' + (i + 1) + (i === chosen ? ' chosen' : ' dim');
+    let html = '<span class="num">' + (i + 1) + '</span><span>' + escapeHtml(word) + '</span>';
+    if (i === chosen) html += '<span class="mystery-badge">Mystery</span>';
+    row.innerHTML = html;
+    cardEl.appendChild(row);
+  });
+  restartAnim(cardEl);
+}
+
+function renderResult() {
+  const cfg = {
+    won:   { icon: '\u2713', title: 'Correct!',    msg: 'Card added to your won pile.' },
+    pass:  { icon: '\u2014', title: 'Passed',      msg: 'Round lost. Card returned to the box.' },
+    wrong: { icon: '\u00D7', title: 'Wrong guess', msg: 'Round lost twice. The next card is also removed.' },
+  }[state.lastResult];
+
+  const icon = document.getElementById('result-icon');
+  icon.textContent = cfg.icon;
+  icon.className = 'result-icon ' + state.lastResult;
+
+  const title = document.getElementById('result-title');
+  title.textContent = cfg.title;
+  title.className = 'result-title ' + state.lastResult;
+
+  document.getElementById('result-msg').textContent = cfg.msg;
+  restartAnim(icon);
+}
+
+function renderEnd() {
+  const score = state.statuses.filter(s => s === 'won').length;
+  const level = getLevel(score);
+  const scoreEl = document.getElementById('end-score-num');
+  scoreEl.textContent = score;
+  scoreEl.style.color = level.color;
+  const titleEl = document.getElementById('end-level-title');
+  titleEl.textContent = level.title;
+  titleEl.style.color = level.color;
+  document.getElementById('end-level-msg').textContent = level.msg;
+  document.getElementById('new-best').classList.toggle('hidden', !state.isNewBest);
+
+  const list = document.getElementById('levels-list');
+  list.innerHTML = '';
+  LEVELS.forEach(l => {
+    const isCurrent = score >= l.min && score <= l.max;
+    const row = document.createElement('div');
+    row.className = 'level-row' + (isCurrent ? ' current' : '');
+    const range = l.min === l.max ? String(l.min) : (l.min + '-' + l.max);
+    row.innerHTML =
+      '<span class="level-range" style="color:' + l.color + '">' + range + '</span>' +
+      '<span style="color:#1a1a1a; font-weight:' + (isCurrent ? 700 : 500) + '">' +
+        '<strong>' + escapeHtml(l.title) + '</strong> ' +
+        '<span style="color:#5a5142; font-weight:400">' + escapeHtml(l.msg) + '</span>' +
+      '</span>';
+    list.appendChild(row);
+  });
+}
+
+function renderBestScore() {
+  const el = document.getElementById('best-score-display');
+  if (state.bestScore !== null) {
+    el.classList.remove('hidden');
+    document.getElementById('best-score-val').textContent = state.bestScore + '/13';
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+// ---- Game logic ----
+function startGame() {
+  state.deck = generateDeck(WORD_POOL);
+  state.statuses = new Array(13).fill('unplayed');
+  state.currentIdx = 0;
+  state.chosenNum = null;
+  state.lastResult = null;
+  state.isNewBest = false;
+
+  showScreen('playing');
+  showPhase('cover');
+  renderTopbar();
+}
+
+function handleReveal() {
+  renderShowingCard();
+  showPhase('showing');
+}
+
+function handleNumberPick(n) {
+  state.chosenNum = n;
+  renderMysteryCard();
+  showPhase('mystery');
+}
+
+function handleResult(result) {
+  const ns = state.statuses.slice();
+  if (result === 'won') ns[state.currentIdx] = 'won';
+  else if (result === 'pass') ns[state.currentIdx] = 'pass';
+  else if (result === 'wrong') {
+    ns[state.currentIdx] = 'wrong';
+    let nextRemoval = -1;
+    for (let i = state.currentIdx + 1; i < 13; i++) {
+      if (ns[i] === 'unplayed') { nextRemoval = i; break; }
+    }
+    if (nextRemoval !== -1) {
+      ns[nextRemoval] = 'removed';
+    } else {
+      for (let i = ns.length - 1; i >= 0; i--) {
+        if (ns[i] === 'won') { ns[i] = 'demoted'; break; }
+      }
+    }
+  }
+  state.statuses = ns;
+  state.lastResult = result;
+  renderTopbar();
+  renderResult();
+  showPhase('result');
+}
+
+function nextRound() {
+  let next = -1;
+  for (let i = state.currentIdx + 1; i < 13; i++) {
+    if (state.statuses[i] === 'unplayed') { next = i; break; }
+  }
+  if (next === -1) {
+    const finalScore = state.statuses.filter(s => s === 'won').length;
+    if (state.bestScore === null || finalScore > state.bestScore) {
+      state.bestScore = finalScore;
+      state.isNewBest = true;
+      storageSet('justone_bestScore', String(finalScore));
+    } else {
+      state.isNewBest = false;
+    }
+    renderEnd();
+    showScreen('ended');
+    renderBestScore();
+  } else {
+    state.currentIdx = next;
+    state.chosenNum = null;
+    state.lastResult = null;
+    renderTopbar();
+    showPhase('cover');
+  }
+}
+
+// ---- Init ----
+function init() {
+  const stored = storageGet('justone_bestScore');
+  if (stored !== null) {
+    const n = parseInt(stored, 10);
+    if (!isNaN(n)) state.bestScore = n;
+  }
+  renderBestScore();
+
+  document.getElementById('btn-start').addEventListener('click', startGame);
+  document.getElementById('btn-rules').addEventListener('click', () => {
+    document.getElementById('rules-modal').classList.remove('hidden');
+  });
+  document.getElementById('btn-close-rules').addEventListener('click', () => {
+    document.getElementById('rules-modal').classList.add('hidden');
+  });
+  document.getElementById('rules-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+  });
+  document.getElementById('btn-reveal').addEventListener('click', handleReveal);
+  document.querySelectorAll('.result-btn').forEach(b => {
+    b.addEventListener('click', () => handleResult(b.getAttribute('data-result')));
+  });
+  document.getElementById('btn-next').addEventListener('click', nextRound);
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    startGame();
+  });
+  document.getElementById('btn-home').addEventListener('click', () => {
+    showScreen('home');
+    renderBestScore();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
