@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Toss — Graspins Games</title>
-    <meta name="description" content="Flip a coin with realistic 3D animations and audio feedback. Track your streaks and stats.">
+    <meta name="description" content="Flip a coin with realistic 3D animations and audio feedback. Featuring a custom dog coin.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪙</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -18,8 +18,6 @@
             --accent: #6366f1;
             --accent-hover: #4f46e5;
             --gold: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
-            --silver: linear-gradient(135deg, #e2e8f0 0%, #64748b 100%);
-            --bronze: linear-gradient(135deg, #ca8a04 0%, #78350f 100%);
             --radius: 16px;
             --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -130,96 +128,31 @@
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            border: 8px solid rgba(255, 255, 255, 0.2);
-            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.6), 0 8px 30px rgba(0, 0, 0, 0.5);
-            font-size: 2.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        /* Coin themes */
-        .coin--bitcoin .side.heads {
             background: var(--gold);
+            border: 8px solid rgba(255, 255, 255, 0.25);
+            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.5), 0 8px 30px rgba(0, 0, 0, 0.4);
             color: #fff;
         }
-        .coin--bitcoin .side.tails {
-            background: var(--silver);
-            color: #1e293b;
+
+        .side.tails {
             transform: rotateY(180deg);
         }
-        .coin--bitcoin .side.heads::before { content: "🪙"; font-size: 4rem; margin-bottom: 4px; }
-        .coin--bitcoin .side.tails::before { content: "₿"; font-size: 4.5rem; }
 
-        .coin--ethereum .side.heads {
-            background: var(--silver);
-            color: #1e293b;
-        }
-        .coin--ethereum .side.tails {
-            background: linear-gradient(135deg, #818cf8 0%, #312e81 100%);
-            color: #fff;
-            transform: rotateY(180deg);
-        }
-        .coin--ethereum .side.heads::before { content: "💎"; font-size: 3.8rem; margin-bottom: 4px; }
-        .coin--ethereum .side.tails::before { content: "Ξ"; font-size: 4.5rem; }
-
-        .coin--graspins .side.heads {
-            background: var(--bronze);
-            color: #fff;
-        }
-        .coin--graspins .side.tails {
-            background: linear-gradient(135deg, #10b981 0%, #064e3b 100%);
-            color: #fff;
-            transform: rotateY(180deg);
-        }
-        .coin--graspins .side.heads::before { content: "🎮"; font-size: 3.8rem; margin-bottom: 4px; }
-        .coin--graspins .side.tails::before { content: "G"; font-size: 4.5rem; }
-
-        /* Configuration Menu */
-        .settings-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            margin-bottom: 24px;
+        .coin-icon {
+            font-size: 4.8rem;
+            margin-bottom: 2px;
+            line-height: 1;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
         }
 
-        .select-title {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            font-weight: 600;
+        .coin-label {
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 12px;
-        }
-
-        .coin-selectors {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        .selector-btn {
-            background: var(--bg-page);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 10px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: var(--transition);
-        }
-
-        .selector-btn:hover {
-            border-color: var(--text-secondary);
-            color: var(--text-primary);
-        }
-
-        .selector-btn--active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fff;
+            color: rgba(255, 255, 255, 0.95);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            margin-top: 4px;
         }
 
         /* Controls */
@@ -274,7 +207,7 @@
         }
 
         .result-text--tails {
-            background: linear-gradient(to right, #e2e8f0, #94a3b8);
+            background: linear-gradient(to right, #fbbf24, #ea580c);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -373,8 +306,9 @@
         }
 
         .history-item--tails {
-            background: var(--silver);
-            color: #1e293b;
+            background: var(--gold);
+            color: #fff;
+            filter: hue-rotate(15deg) brightness(0.9);
         }
 
         @keyframes popIn {
@@ -385,7 +319,8 @@
         @media (max-width: 480px) {
             .title { font-size: 1.8rem; }
             .coin-wrapper { width: 160px; height: 160px; }
-            .side { font-size: 2rem; border-width: 6px; }
+            .side { border-width: 6px; }
+            .coin-icon { font-size: 3.8rem; }
             .btn-flip { width: 100%; }
         }
     </style>
@@ -397,14 +332,20 @@
 
         <header>
             <h1 class="title">Coin Toss</h1>
-            <p class="subtitle">Flip a coin to decide your fate</p>
+            <p class="subtitle">Flip the dog coin to decide your fate</p>
         </header>
 
         <!-- Dynamic 3D Coin -->
         <div class="coin-wrapper" id="coin-container">
-            <div class="coin coin--bitcoin" id="coin-element">
-                <div class="side heads"></div>
-                <div class="side tails"></div>
+            <div class="coin" id="coin-element">
+                <div class="side heads">
+                    <span class="coin-icon">🐶</span>
+                    <span class="coin-label">Heads</span>
+                </div>
+                <div class="side tails">
+                    <span class="coin-icon">🐕</span>
+                    <span class="coin-label">Tails</span>
+                </div>
             </div>
         </div>
         <div class="coin-shadow"></div>
@@ -415,16 +356,6 @@
         <!-- Result announcement -->
         <div class="result-box">
             <div class="result-text" id="result-text">Heads</div>
-        </div>
-
-        <!-- Coin Settings -->
-        <div class="settings-card">
-            <div class="select-title">Choose Coin Style</div>
-            <div class="coin-selectors">
-                <button class="selector-btn selector-btn--active" data-coin="bitcoin">₿ Gold</button>
-                <button class="selector-btn" data-coin="ethereum">Ξ Silver</button>
-                <button class="selector-btn" data-coin="graspins">🎮 Classic</button>
-            </div>
         </div>
 
         <!-- Stats Grid -->
@@ -540,7 +471,6 @@
         let currentStreak = 0;
         let streakType = ''; // 'H' or 'T'
         let history = [];
-        let coinStyle = 'bitcoin';
         let isFlipping = false;
 
         const STORAGE_KEY = 'graspins_cointoss_v1';
@@ -554,7 +484,6 @@
         const statStreak = document.getElementById('stat-streak');
         const historyContainer = document.getElementById('history-container');
         const btnReset = document.getElementById('btn-reset');
-        const selectors = document.querySelectorAll('.selector-btn');
 
         // Load stats
         function loadStats() {
@@ -567,11 +496,9 @@
                     currentStreak = data.currentStreak || 0;
                     streakType = data.streakType || '';
                     history = data.history || [];
-                    coinStyle = data.coinStyle || 'bitcoin';
                     
                     updateUIStats();
                     renderHistory();
-                    setCoinTheme(coinStyle);
                 }
             } catch (e) {}
         }
@@ -584,24 +511,10 @@
                     tailsCount,
                     currentStreak,
                     streakType,
-                    history,
-                    coinStyle
+                    history
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             } catch(e) {}
-        }
-
-        function setCoinTheme(theme) {
-            coinStyle = theme;
-            coinEl.className = `coin coin--${theme}`;
-            selectors.forEach(btn => {
-                if (btn.dataset.coin === theme) {
-                    btn.classList.add('selector-btn--active');
-                } else {
-                    btn.classList.remove('selector-btn--active');
-                }
-            });
-            saveStats();
         }
 
         function updateUIStats() {
@@ -612,7 +525,6 @@
 
         function renderHistory() {
             historyContainer.innerHTML = '';
-            // Display last 10 entries
             const recent = history.slice(-10);
             recent.forEach(outcome => {
                 const item = document.createElement('div');
@@ -635,10 +547,7 @@
             const isHeads = Math.random() < 0.5;
             const outcome = isHeads ? 'H' : 'T';
 
-            // Calculate rotations
-            // Heads: rotation ends at Y = 0 (or multiple of 360)
-            // Tails: rotation ends at Y = 180 (or multiple of 360 + 180)
-            const rotationsX = 1440 + Math.floor(Math.random() * 360); // spin on multiple axes
+            const rotationsX = 1440 + Math.floor(Math.random() * 360);
             const rotationsY = 1440 + (isHeads ? 0 : 180);
 
             // Trigger physical transition
@@ -649,7 +558,7 @@
                 coinEl.classList.remove('flipping');
                 playCatchSound();
 
-                // Reset rotation cleanly to avoid graphical artifacts on subsequent spins
+                // Reset rotation cleanly
                 coinEl.style.transition = 'none';
                 coinEl.style.transform = `rotateX(0deg) rotateY(${isHeads ? 0 : 180}deg)`;
 
@@ -665,7 +574,7 @@
                 }
 
                 history.push(outcome);
-                if (history.length > 20) history.shift(); // limit rolling history size
+                if (history.length > 20) history.shift();
 
                 saveStats();
                 updateUIStats();
@@ -683,13 +592,6 @@
         btnFlip.addEventListener('click', flipCoin);
         coinEl.addEventListener('click', flipCoin);
 
-        selectors.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (isFlipping) return;
-                setCoinTheme(btn.dataset.coin);
-            });
-        });
-
         btnReset.addEventListener('click', () => {
             if (isFlipping) return;
             if (confirm('Clear all statistics and history?')) {
@@ -698,7 +600,7 @@
                 currentStreak = 0;
                 streakType = '';
                 history = [];
-                saveStats();
+                saveState();
                 updateUIStats();
                 renderHistory();
                 resultText.classList.remove('visible');

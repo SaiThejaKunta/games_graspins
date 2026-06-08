@@ -14,6 +14,14 @@ A premium, curated collection of serverless, self-contained word puzzles, party 
   * **Dynamic Knowledge Graph**: A custom HTML5 Canvas force-directed graph physics simulation showcasing how your guesses bridge together semantically towards the target word.
   * **Smart Selector**: Dynamically limits target words to the top 700 everyday daily-use terms and prevents repetition using client-side history tracking.
 
+### 💣 Minesweeper (Solo)
+* **Goal**: Clear a 10x10 board without hitting hidden mines.
+* **Features**:
+  * Clean dark layout with cell hover overlays.
+  * Mobile-friendly toggles for Dig Mode vs. Flag Mode.
+  * Shaking board layout and particle explosions on mine hits.
+  * Web Audio synthesized click ticks and bass boom explosion sounds.
+
 ### 🔴 Connect Four (2 Player)
 * **Goal**: Drop chips into a 6x7 grid to align four of your matching colors (Red vs. Yellow).
 * **Features**:
@@ -30,6 +38,14 @@ A premium, curated collection of serverless, self-contained word puzzles, party 
   * Victory strike overlay drawing a line directly across matching markers.
   * Custom player name configurations and scoreboards.
 
+### 🏓 Pong Arena (2 Player)
+* **Goal**: Bounce a ball off paddles and score goals (first to 7 points).
+* **Features**:
+  * Fast speed-ramping ball physics.
+  * Local 2-player support (W/S vs. Up/Down Arrow keys).
+  * Glowing neon board styling, side collision shakes, and scores watermarks.
+  * Synthesized paddle hit tones and score goal sounds.
+
 ### 🕵️ Codenames (Co-op / Party)
 * **Goal**: Spymasters give one-word clues pointing to multiple words on a shared board. Teams collaborate to discover all of their agents before the assassin is revealed.
 
@@ -43,7 +59,8 @@ A premium, curated collection of serverless, self-contained word puzzles, party 
 * **Goal**: Flip a coin to settle disputes or decide game order.
 * **Features**:
   * Full 3D spinning physics coin animation rotating on multiple axes.
-  * Switchable coin styles: Gold Bitcoin, Silver Ethereum, or Bronze Graspins.
+  * Simplified design featuring a Dog Head (🐶) for Heads and Dog (🐕) for Tails.
+  * Text labels ("HEADS" / "TAILS") printed directly at the bottom inside the coin face.
   * Synthesized metallic ringing and table bounce audio.
   * Tracks tails/heads statistics and consecutive streaks.
 
