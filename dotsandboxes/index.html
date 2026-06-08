@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dots and Boxes — Graspins Games</title>
+    <meta name="description" content="Play local 2-player Dots and Boxes. Take turns connecting dots to claim boxes. Perfect for mobile and tablet screens.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-page: #080b11;
+            --bg-card: #121824;
+            --bg-hover: #1e293b;
+            --border: #2e3b52;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --p1-color: #3b82f6;
+            --p1-glow: rgba(59, 130, 246, 0.4);
+            --p1-bg: rgba(59, 130, 246, 0.15);
+            --p2-color: #ec4899;
+            --p2-glow: rgba(236, 72, 153, 0.4);
+            --p2-bg: rgba(236, 72, 153, 0.15);
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --radius: 16px;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --transition: all 0.25s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 460px;
+            text-align: center;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+            transform: translateX(-4px);
+        }
+
+        header {
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 4px;
+            background: linear-gradient(to right, #3b82f6, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Players Config */
+        .config-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .input-group {
+            text-align: left;
+        }
+
+        .input-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .input-label--p1 { color: var(--p1-color); }
+        .input-label--p2 { color: var(--p2-color); }
+
+        .input-field {
+            width: 100%;
+            background: #0d121f;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--text-secondary);
+        }
+
+        /* Scoreboard */
+        .scoreboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .score-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .score-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            opacity: 0.3;
+        }
+
+        .score-card--p1::after { background: var(--p1-color); }
+        .score-card--p2::after { background: var(--p2-color); }
+
+        .score-card--active {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.08);
+        }
+        .score-card--active.score-card--p1 { border-color: var(--p1-color); }
+        .score-card--active.score-card--p2 { border-color: var(--p2-color); }
+
+        .score-val {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .score-card--p1 .score-val { color: var(--p1-color); }
+        .score-card--p2 .score-val { color: var(--p2-color); }
+
+        .score-lbl {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Game Board */
+        .board-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .board-grid {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            background: #090e18;
+            border-radius: 8px;
+        }
+
+        /* Grid Dots */
+        .dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #475569;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Lines */
+        .line {
+            position: absolute;
+            background: transparent;
+            cursor: pointer;
+            z-index: 5;
+            transition: var(--transition);
+        }
+
+        /* Horizontal lines */
+        .line--h {
+            height: 16px;
+            margin-top: -8px; /* centering */
+            transform: translate(0, 0);
+        }
+
+        .line--h::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            right: 6px;
+            top: 6px;
+            height: 4px;
+            background: #1e293b;
+            border-radius: 2px;
+            transition: var(--transition);
+        }
+
+        .line--h:hover::before {
+            background: #334155;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Vertical lines */
+        .line--v {
+            width: 16px;
+            margin-left: -8px; /* centering */
+        }
+
+        .line--v::before {
+            content: '';
+            position: absolute;
+            top: 6px;
+            bottom: 6px;
+            left: 6px;
+            width: 4px;
+            background: #1e293b;
+            border-radius: 2px;
+            transition: var(--transition);
+        }
+
+        .line--v:hover::before {
+            background: #334155;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Claimed line states */
+        .line--claimed-p1::before {
+            background: var(--p1-color) !important;
+            box-shadow: 0 0 10px var(--p1-glow);
+            height: 6px !important;
+            top: 5px !important;
+        }
+
+        .line--v.line--claimed-p1::before {
+            width: 6px !important;
+            left: 5px !important;
+            height: auto !important;
+            top: 6px !important;
+            bottom: 6px !important;
+        }
+
+        .line--claimed-p2::before {
+            background: var(--p2-color) !important;
+            box-shadow: 0 0 10px var(--p2-glow);
+            height: 6px !important;
+            top: 5px !important;
+        }
+
+        .line--v.line--claimed-p2::before {
+            width: 6px !important;
+            left: 5px !important;
+            height: auto !important;
+            top: 6px !important;
+            bottom: 6px !important;
+        }
+
+        /* claimed boxes */
+        .box {
+            position: absolute;
+            transform: translate(0, 0);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            border-radius: 4px;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .box--claimed {
+            opacity: 1;
+        }
+
+        .box--p1 {
+            background: var(--p1-bg);
+            color: var(--p1-color);
+            text-shadow: 0 0 8px var(--p1-glow);
+        }
+
+        .box--p2 {
+            background: var(--p2-bg);
+            color: var(--p2-color);
+            text-shadow: 0 0 8px var(--p2-glow);
+        }
+
+        /* Status & Actions */
+        .status-bar {
+            margin-top: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            min-height: 28px;
+            transition: var(--transition);
+        }
+
+        .status-bar--p1 { color: var(--p1-color); }
+        .status-bar--p2 { color: var(--p2-color); }
+
+        .controls-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 30px;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+        }
+
+        .btn-reset-board {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-reset-board:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-clear-scores {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-clear-scores:hover {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+        }
+
+        @media (max-width: 480px) {
+            .title { font-size: 1.8rem; }
+            .board-container { padding: 12px; }
+            .board-grid { width: 280px; height: 280px; }
+            .dot { width: 10px; height: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="../index.html" class="back-link">➔ Back to Games</a>
+
+        <header>
+            <h1 class="title">Dots & Boxes</h1>
+            <p class="subtitle">Draw lines between dots to claim boxes</p>
+        </header>
+
+        <!-- Player config -->
+        <div class="config-card">
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label input-label--p1">🔵 Player 1 Name</label>
+                    <input type="text" id="name-p1" class="input-field" value="Player 1" maxlength="12">
+                </div>
+                <div class="input-group">
+                    <label class="input-label input-label--p2">💗 Player 2 Name</label>
+                    <input type="text" id="name-p2" class="input-field" value="Player 2" maxlength="12">
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoreboard -->
+        <div class="scoreboard">
+            <div class="score-card score-card--p1 score-card--active" id="card-p1">
+                <div class="score-val" id="score-p1">0</div>
+                <div class="score-lbl" id="lbl-p1">Player 1</div>
+            </div>
+            <div class="score-card score-card--p2" id="card-p2">
+                <div class="score-val" id="score-p2">0</div>
+                <div class="score-lbl" id="lbl-p2">Player 2</div>
+            </div>
+        </div>
+
+        <!-- Board Grid viewport -->
+        <div class="board-container">
+            <div class="board-grid" id="board-grid">
+                <!-- Dots, lines, and boxes dynamically generated -->
+            </div>
+        </div>
+
+        <div class="status-bar" id="status-bar">Player 1's turn</div>
+
+        <div class="controls-row">
+            <button class="btn btn-reset-board" id="btn-reset-board">Play Again</button>
+            <button class="btn btn-clear-scores" id="btn-clear-scores">Reset Game</button>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio Synthesizer
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Sound: line placed
+        function playPlaceSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(now + 0.06);
+            } catch(e) {}
+        }
+
+        // Sound: box completed
+        function playBoxClaimSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1); // A5
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(now + 0.15);
+            } catch(e) {}
+        }
+
+        // Sound: Win scale
+        function playWinSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C, E, G, C
+
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.12, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.3);
+                });
+            } catch(e) {}
+        }
+
+        // Game Configuration
+        const GRID_DOTS = 5;
+        const BOXES_SIZE = 4;
+        const BOARD_PIXELS = 320; // coordinate box boundary size
+        const SPACING = BOARD_PIXELS / (GRID_DOTS - 1);
+
+        let claimedLines = {}; // key -> '1' or '2'
+        let claimedBoxes = {}; // key -> '1' or '2'
+        let currentPlayer = '1'; // '1' or '2'
+        let p1Score = 0;
+        let p2Score = 0;
+        let gameActive = true;
+        let nameP1 = 'Player 1';
+        let nameP2 = 'Player 2';
+
+        const STORAGE_KEY = 'graspins_dots_v1';
+
+        // Elements
+        const boardGrid = document.getElementById('board-grid');
+        const statusBar = document.getElementById('status-bar');
+        const scoreP1El = document.getElementById('score-p1');
+        const scoreP2El = document.getElementById('score-p2');
+        const nameP1Input = document.getElementById('name-p1');
+        const nameP2Input = document.getElementById('name-p2');
+        const cardP1 = document.getElementById('card-p1');
+        const cardP2 = document.getElementById('card-p2');
+        const lblP1 = document.getElementById('lbl-p1');
+        const lblP2 = document.getElementById('lbl-p2');
+        const btnResetBoard = document.getElementById('btn-reset-board');
+        const btnClearScores = document.getElementById('btn-clear-scores');
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    nameP1 = data.nameP1 || 'Player 1';
+                    nameP2 = data.nameP2 || 'Player 2';
+                    nameP1Input.value = nameP1;
+                    nameP2Input.value = nameP2;
+                    updateNames();
+                }
+            } catch(e) {}
+        }
+
+        function saveState() {
+            try {
+                const data = { nameP1, nameP2 };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch(e) {}
+        }
+
+        function updateNames() {
+            nameP1 = nameP1Input.value.trim() || 'Player 1';
+            nameP2 = nameP2Input.value.trim() || 'Player 2';
+            lblP1.textContent = nameP1;
+            lblP2.textContent = nameP2;
+            updateTurnText();
+            saveState();
+        }
+
+        function updateTurnText() {
+            if (!gameActive) return;
+            statusBar.textContent = currentPlayer === '1'
+                ? `${nameP1}'s Turn (🔵)`
+                : `${nameP2}'s Turn (💗)`;
+            statusBar.className = `status-bar status-bar--p${currentPlayer}`;
+
+            if (currentPlayer === '1') {
+                cardP1.classList.add('score-card--active');
+                cardP2.classList.remove('score-card--active');
+            } else {
+                cardP2.classList.add('score-card--active');
+                cardP1.classList.remove('score-card--active');
+            }
+        }
+
+        // Render board layout
+        function buildBoard() {
+            boardGrid.innerHTML = '';
+            
+            // 1. Render Boxes (hollow containers that fill on claim)
+            for (let r = 0; r < BOXES_SIZE; r++) {
+                for (let c = 0; c < BOXES_SIZE; c++) {
+                    const box = document.createElement('div');
+                    box.className = 'box';
+                    box.id = `box_${r}_${c}`;
+                    
+                    // Style coordinates
+                    box.style.left = `${c * SPACING + 6}px`;
+                    box.style.top = `${r * SPACING + 6}px`;
+                    box.style.width = `${SPACING - 12}px`;
+                    box.style.height = `${SPACING - 12}px`;
+
+                    boardGrid.appendChild(box);
+                }
+            }
+
+            // 2. Render Lines
+            // Horizontal lines: 5 rows of 4 lines
+            for (let r = 0; r < GRID_DOTS; r++) {
+                for (let c = 0; c < BOXES_SIZE; c++) {
+                    const line = document.createElement('div');
+                    line.className = 'line line--h';
+                    line.id = `h_${r}_${c}`;
+                    
+                    // Coordinates
+                    line.style.left = `${c * SPACING}px`;
+                    line.style.top = `${r * SPACING}px`;
+                    line.style.width = `${SPACING}px`;
+
+                    line.addEventListener('click', () => claimLine('h', r, c));
+                    boardGrid.appendChild(line);
+                }
+            }
+
+            // Vertical lines: 4 rows of 5 lines
+            for (let r = 0; r < BOXES_SIZE; r++) {
+                for (let c = 0; c < GRID_DOTS; c++) {
+                    const line = document.createElement('div');
+                    line.className = 'line line--v';
+                    line.id = `v_${r}_${c}`;
+
+                    // Coordinates
+                    line.style.left = `${c * SPACING}px`;
+                    line.style.top = `${r * SPACING}px`;
+                    line.style.height = `${SPACING}px`;
+
+                    line.addEventListener('click', () => claimLine('v', r, c));
+                    boardGrid.appendChild(line);
+                }
+            }
+
+            // 3. Render Dots
+            for (let r = 0; r < GRID_DOTS; r++) {
+                for (let c = 0; c < GRID_DOTS; c++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'dot';
+                    dot.style.left = `${c * SPACING}px`;
+                    dot.style.top = `${r * SPACING}px`;
+                    boardGrid.appendChild(dot);
+                }
+            }
+        }
+
+        function claimLine(type, r, c) {
+            if (!gameActive) return;
+            const key = `${type}_${r}_${c}`;
+            if (claimedLines[key]) return; // already taken
+
+            claimedLines[key] = currentPlayer;
+            const lineEl = document.getElementById(key);
+            lineEl.classList.add(`line--claimed-p${currentPlayer}`);
+            playPlaceSound();
+
+            const completedBoxes = checkBoxes(type, r, c);
+
+            if (completedBoxes.length > 0) {
+                // Completed boxes! Player scores points and takes another turn
+                playBoxClaimSound();
+                completedBoxes.forEach(boxKey => {
+                    claimedBoxes[boxKey] = currentPlayer;
+                    
+                    const boxEl = document.getElementById(`box_${boxKey}`);
+                    boxEl.classList.add('box--claimed', `box--p${currentPlayer}`);
+                    boxEl.textContent = currentPlayer === '1' ? 'A' : 'B'; // short initial marks
+
+                    if (currentPlayer === '1') p1Score++;
+                    else p2Score++;
+                });
+
+                scoreP1El.textContent = p1Score;
+                scoreP2El.textContent = p2Score;
+                
+                checkVictory();
+            } else {
+                // Toggle players turn
+                currentPlayer = currentPlayer === '1' ? '2' : '1';
+                updateTurnText();
+            }
+        }
+
+        // Check if any boxes surrounding the drawn line are now completed
+        function checkBoxes(type, r, c) {
+            const boxesCompleted = [];
+
+            if (type === 'h') {
+                // Horizontal line can complete box above (r-1) and box below (r)
+                if (r > 0) {
+                    // check box above
+                    if (isBoxFilled(r - 1, c)) boxesCompleted.push(`${r-1}_${c}`);
+                }
+                if (r < BOXES_SIZE) {
+                    // check box below
+                    if (isBoxFilled(r, c)) boxesCompleted.push(`${r}_${c}`);
+                }
+            } else {
+                // Vertical line can complete box to the left (c-1) and box to the right (c)
+                if (c > 0) {
+                    // check box left
+                    if (isBoxFilled(r, c - 1)) boxesCompleted.push(`${r}_${c-1}`);
+                }
+                if (c < BOXES_SIZE) {
+                    // check box right
+                    if (isBoxFilled(r, c)) boxesCompleted.push(`${r}_${c}`);
+                }
+            }
+
+            return boxesCompleted;
+        }
+
+        function isBoxFilled(r, c) {
+            // Check top, bottom, left, and right lines of box (r, c)
+            const top = `h_${r}_${c}`;
+            const bottom = `h_${r+1}_${c}`;
+            const left = `v_${r}_${c}`;
+            const right = `v_${r}_${c+1}`;
+
+            return claimedLines[top] && claimedLines[bottom] && claimedLines[left] && claimedLines[right];
+        }
+
+        function checkVictory() {
+            // Check if all 16 boxes are claimed
+            const totalBoxes = BOXES_SIZE * BOXES_SIZE;
+            const claimedCount = Object.keys(claimedBoxes).length;
+
+            if (claimedCount === totalBoxes) {
+                gameActive = false;
+                playWinSound();
+                spawnConfetti();
+
+                if (p1Score > p2Score) {
+                    statusBar.textContent = `🎉 ${nameP1} Wins!`;
+                    statusBar.className = 'status-bar status-bar--p1';
+                } else if (p2Score > p1Score) {
+                    statusBar.textContent = `🎉 ${nameP2} Wins!`;
+                    statusBar.className = 'status-bar status-bar--p2';
+                } else {
+                    statusBar.textContent = `🤝 It's a Tie!`;
+                    statusBar.className = 'status-bar';
+                }
+
+                cardP1.classList.remove('score-card--active');
+                cardP2.classList.remove('score-card--active');
+            }
+        }
+
+        function resetBoard() {
+            claimedLines = {};
+            claimedBoxes = {};
+            p1Score = 0;
+            p2Score = 0;
+            gameActive = true;
+            currentPlayer = '1';
+
+            scoreP1El.textContent = '0';
+            scoreP2El.textContent = '0';
+            
+            buildBoard();
+            updateTurnText();
+        }
+
+        function spawnConfetti() {
+            const colors = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981'];
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '100vw';
+            container.style.height = '100vh';
+            container.style.pointerEvents = 'none';
+            container.style.zIndex = '999';
+            document.body.appendChild(container);
+
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.style.position = 'absolute';
+                particle.style.width = `${Math.random() * 8 + 6}px`;
+                particle.style.height = `${Math.random() * 8 + 6}px`;
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.left = `${Math.random() * 100}vw`;
+                particle.style.top = `-20px`;
+                particle.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                
+                const duration = 2 + Math.random() * 2;
+                const delay = Math.random() * 1.2;
+                particle.style.transition = `transform ${duration}s linear ${delay}s, opacity ${duration}s ease ${delay}s`;
+                container.appendChild(particle);
+
+                setTimeout(() => {
+                    particle.style.transform = `translateY(110vh) rotate(${Math.random() * 360}deg)`;
+                    particle.style.opacity = '0';
+                }, 50);
+            }
+
+            setTimeout(() => container.remove(), 4000);
+        }
+
+        // Listeners
+        nameP1Input.addEventListener('input', updateNames);
+        nameP2Input.addEventListener('input', updateNames);
+        btnResetBoard.addEventListener('click', resetBoard);
+
+        btnClearScores.addEventListener('click', () => {
+            if (confirm('Reset custom player names and scores?')) {
+                nameP1Input.value = 'Player 1';
+                nameP2Input.value = 'Player 2';
+                updateNames();
+                resetBoard();
+            }
+        });
+
+        // Run Init
+        buildBoard();
+        loadState();
+    </script>
+</body>
+</html>

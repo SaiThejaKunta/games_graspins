@@ -38,13 +38,15 @@ A premium, curated collection of serverless, self-contained word puzzles, party 
   * Victory strike overlay drawing a line directly across matching markers.
   * Custom player name configurations and scoreboards.
 
-### 🏓 Pong Arena (2 Player)
-* **Goal**: Bounce a ball off paddles and score goals (first to 7 points).
+### 📦 Dots & Boxes (2 Player)
+* **Goal**: Connect adjacent dots in a grid to complete boxes and claim them.
 * **Features**:
-  * Fast speed-ramping ball physics.
-  * Local 2-player support (W/S vs. Up/Down Arrow keys).
-  * Glowing neon board styling, side collision shakes, and scores watermarks.
-  * Synthesized paddle hit tones and score goal sounds.
+  * Tap or click adjacent dots to draw lines on a 5x5 grid.
+  * Claiming a box scores a point and grants an extra turn.
+  * Neon-glowing grid layout with dynamic color themes matching each player.
+  * Interactive config menu to name players and keep track of scores.
+  * Fully touch-optimized and responsive for mobile and tablet screens.
+  * Dynamic audio synthesis for line placement, box claims, and victory celebrations.
 
 ### 🕵️ Codenames (Co-op / Party)
 * **Goal**: Spymasters give one-word clues pointing to multiple words on a shared board. Teams collaborate to discover all of their agents before the assassin is revealed.
