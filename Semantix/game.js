@@ -31,7 +31,7 @@ class SimilarityEngine {
     }
     this.vectors = WORD_VECTORS;
     this.words = Object.keys(this.vectors);
-    this.targetWords = (typeof TARGET_WORDS !== 'undefined' && TARGET_WORDS.length > 0) ? TARGET_WORDS : this.words;
+    this.targetWords = (typeof TARGET_WORDS !== 'undefined' && TARGET_WORDS.length > 0) ? TARGET_WORDS.slice(0, 700) : this.words;
     this.loaded = true;
     console.log(`[Engine] Loaded ${this.words.length} word vectors, ${this.targetWords.length} target words.`);
   }
@@ -226,14 +226,41 @@ class GameState {
     this.savedDailyGN = 0;
   }
 
+  markWordAsCompleted(word) {
+    if (!word) return;
+    try {
+      const completed = JSON.parse(localStorage.getItem('semantix_completed_words') || '[]');
+      if (!completed.includes(word)) {
+        completed.push(word);
+        localStorage.setItem('semantix_completed_words', JSON.stringify(completed));
+      }
+    } catch (e) {}
+  }
+
   init() {
     this.startTime = Date.now();
     this.loadProgress();
     if (!this.targetWord) {
       this.gameNumber = DailyWord.getGameNumber();
       const pool = this.engine.targetWords;
-      const idx = DailyWord.getWordIndex(pool.length);
-      this.targetWord = pool[idx];
+      
+      // Select daily word, scanning ahead deterministically if already completed
+      let gn = this.gameNumber;
+      let word = "";
+      let attempts = 0;
+      let completedSet = new Set();
+      try {
+        completedSet = new Set(JSON.parse(localStorage.getItem('semantix_completed_words') || '[]'));
+      } catch (e) {}
+      
+      do {
+        const seed = `semant-daily-${gn + attempts}-secret`;
+        const idx = DailyWord.hash(seed) % pool.length;
+        word = pool[idx];
+        attempts++;
+      } while (completedSet.has(word) && attempts < pool.length);
+
+      this.targetWord = word;
       this.isPractice = false;
       this.savedDailyGN = this.gameNumber;
     }
@@ -249,10 +276,22 @@ class GameState {
     this.startTime = Date.now();
     this.savedDailyGN = DailyWord.getGameNumber();
 
-    // Pick a random word from targetWords
     const pool = this.engine.targetWords;
-    const idx = Math.floor(Math.random() * pool.length);
-    this.targetWord = pool[idx];
+    let completedSet = new Set();
+    try {
+      completedSet = new Set(JSON.parse(localStorage.getItem('semantix_completed_words') || '[]'));
+    } catch (e) {}
+
+    let availablePool = pool.filter(w => !completedSet.has(w));
+    if (availablePool.length === 0) {
+      try {
+        localStorage.setItem('semantix_completed_words', JSON.stringify([]));
+      } catch (e) {}
+      availablePool = pool;
+    }
+
+    const idx = Math.floor(Math.random() * availablePool.length);
+    this.targetWord = availablePool[idx];
 
     this.saveProgress();
   }
@@ -302,6 +341,7 @@ class GameState {
     if (isWin) {
       this.won = true;
       this.updateStats();
+      this.markWordAsCompleted(this.targetWord);
     }
 
     this.saveProgress();
@@ -1436,6 +1476,7 @@ class UIController {
     if (!confirm('Give up? The answer will be revealed.')) return;
 
     this.game.won = true;
+    this.game.markWordAsCompleted(this.game.targetWord);
     this.game.saveProgress();
     this.elApp.classList.add('app--won');
     this.elInput.disabled = true;

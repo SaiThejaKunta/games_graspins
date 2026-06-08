@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe (XOX) — Graspins Games</title>
+    <meta name="description" content="Play local 2-player Tic-Tac-Toe with glowing neon visual effects and synthesized audio.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❌</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-page: #0b0f19;
+            --bg-card: #161e2e;
+            --bg-hover: #1e293b;
+            --border: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --x-color: #3b82f6;
+            --x-glow: #2563eb;
+            --o-color: #ec4899;
+            --o-glow: #db2777;
+            --radius: 16px;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+            transform: translateX(-4px);
+        }
+
+        header {
+            margin-bottom: 24px;
+        }
+
+        .title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 4px;
+            background: linear-gradient(to right, #3b82f6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Player Names Config */
+        .config-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .input-group {
+            text-align: left;
+        }
+
+        .input-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .input-label--x { color: var(--x-color); }
+        .input-label--o { color: var(--o-color); }
+
+        .input-field {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--text-secondary);
+        }
+
+        /* Scoreboard */
+        .scoreboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .score-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .score-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            opacity: 0.3;
+        }
+
+        .score-card--x::after { background: var(--x-color); }
+        .score-card--o::after { background: var(--o-color); }
+        .score-card--draw::after { background: var(--text-secondary); }
+
+        .score-card--active {
+            transform: translateY(-2px);
+            border-color: var(--text-primary);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+
+        .score-card--active.score-card--x { border-color: var(--x-color); }
+        .score-card--active.score-card--o { border-color: var(--o-color); }
+
+        .score-val {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .score-card--x .score-val { color: var(--x-color); }
+        .score-card--o .score-val { color: var(--o-color); }
+
+        .score-lbl {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Game Grid Board */
+        .board-container {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            aspect-ratio: 1;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 12px;
+            height: 100%;
+            width: 100%;
+        }
+
+        .cell {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .cell:hover:not(.cell--taken) {
+            background: var(--bg-hover);
+            transform: scale(1.02);
+            border-color: var(--text-secondary);
+        }
+
+        /* SVG Mark designs */
+        .cell svg {
+            width: 65%;
+            height: 65%;
+            stroke-width: 12;
+            stroke-linecap: round;
+            fill: none;
+        }
+
+        .cell--x svg {
+            stroke: var(--x-color);
+            filter: drop-shadow(0 0 6px var(--x-glow));
+        }
+
+        .cell--o svg {
+            stroke: var(--o-color);
+            filter: drop-shadow(0 0 6px var(--o-glow));
+        }
+
+        .draw-x-line1 {
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: drawLine 0.25s ease forwards;
+        }
+
+        .draw-x-line2 {
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: drawLine 0.25s ease 0.15s forwards;
+        }
+
+        .draw-o-circle {
+            stroke-dasharray: 300;
+            stroke-dashoffset: 300;
+            animation: drawLine 0.35s ease forwards;
+        }
+
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+
+        /* Winning Line overlay */
+        .winning-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            stroke-linecap: round;
+            z-index: 10;
+        }
+
+        /* Controls */
+        .controls-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 30px;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+        }
+
+        .btn-reset-board {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-reset-board:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-clear-scores {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-clear-scores:hover {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+        }
+
+        .status-bar {
+            margin-top: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            min-height: 28px;
+            transition: var(--transition);
+        }
+
+        .status-bar--x { color: var(--x-color); }
+        .status-bar--o { color: var(--o-color); }
+
+        @media (max-width: 480px) {
+            .title { font-size: 1.8rem; }
+            .board-container { padding: 10px; }
+            .cell { border-radius: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="../index.html" class="back-link">➔ Back to Games</a>
+
+        <header>
+            <h1 class="title">Tic-Tac-Toe</h1>
+            <p class="subtitle">Match three marks in a row to win</p>
+        </header>
+
+        <!-- Player Config -->
+        <div class="config-card">
+            <div class="input-row">
+                <div class="input-group">
+                    <label class="input-label input-label--x">❌ Player X Name</label>
+                    <input type="text" id="name-x" class="input-field" value="Player X" maxlength="12">
+                </div>
+                <div class="input-group">
+                    <label class="input-label input-label--o">⭕ Player O Name</label>
+                    <input type="text" id="name-o" class="input-field" value="Player O" maxlength="12">
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoreboard -->
+        <div class="scoreboard">
+            <div class="score-card score-card--x score-card--active" id="card-x">
+                <div class="score-val" id="score-x">0</div>
+                <div class="score-lbl" id="lbl-x">Player X</div>
+            </div>
+            <div class="score-card score-card--draw">
+                <div class="score-val" id="score-ties">0</div>
+                <div class="score-lbl">Ties</div>
+            </div>
+            <div class="score-card score-card--o" id="card-o">
+                <div class="score-val" id="score-o">0</div>
+                <div class="score-lbl" id="lbl-o">Player O</div>
+            </div>
+        </div>
+
+        <!-- Board Grid -->
+        <div class="board-container">
+            <div class="board" id="board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+            
+            <!-- SVG Overlay for drawing winning connection line -->
+            <svg class="winning-line" id="line-svg" viewBox="0 0 300 300">
+                <line id="winning-strike" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.9)" stroke-width="8" style="display:none; transition: all 0.5s ease; stroke-linecap: round;" />
+            </svg>
+        </div>
+
+        <!-- Status & Actions -->
+        <div class="status-bar" id="status-bar">Player X's turn</div>
+        
+        <div class="controls-row">
+            <button class="btn btn-reset-board" id="btn-reset-board">Play Again</button>
+            <button class="btn btn-clear-scores" id="btn-clear-scores">Reset Game</button>
+        </div>
+    </div>
+
+    <!-- Victory Confetti Particles -->
+    <script>
+        // Web Audio Synthesizer
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Sound: Mark placed
+        function playPlaceSound(isX) {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                // X sound has a higher chirpy frequency, O has a slightly lower warm tone
+                osc.frequency.setValueAtTime(isX ? 523.25 : 349.23, now); // C5 or F4
+                osc.frequency.exponentialRampToValueAtTime(isX ? 783.99 : 523.25, now + 0.08); // G5 or C5
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } catch(e) {}
+        }
+
+        // Sound: Win melody arpeggio
+        function playWinSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C major arpeggio
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.3);
+                });
+            } catch(e) {}
+        }
+
+        // Sound: Tie
+        function playTieSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now); // A3
+                osc.frequency.linearRampToValueAtTime(147, now + 0.3); // D3
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } catch(e) {}
+        }
+
+        // Game State
+        let board = Array(9).fill('');
+        let currentPlayer = 'X'; // 'X' or 'O'
+        let gameActive = true;
+        let scoreX = 0;
+        let scoreO = 0;
+        let ties = 0;
+        let nameX = 'Player X';
+        let nameO = 'Player O';
+
+        const STORAGE_KEY = 'graspins_xox_v1';
+
+        // Winning patterns
+        const winStates = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+            [0, 4, 8], [2, 4, 6]             // diagonals
+        ];
+
+        // Elements
+        const cells = document.querySelectorAll('.cell');
+        const statusBar = document.getElementById('status-bar');
+        const scoreXEl = document.getElementById('score-x');
+        const scoreOEl = document.getElementById('score-o');
+        const scoreTiesEl = document.getElementById('score-ties');
+        const nameXInput = document.getElementById('name-x');
+        const nameOInput = document.getElementById('name-o');
+        const cardX = document.getElementById('card-x');
+        const cardO = document.getElementById('card-o');
+        const lblX = document.getElementById('lbl-x');
+        const lblO = document.getElementById('lbl-o');
+        const btnResetBoard = document.getElementById('btn-reset-board');
+        const btnClearScores = document.getElementById('btn-clear-scores');
+        const winningStrike = document.getElementById('winning-strike');
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    scoreX = data.scoreX || 0;
+                    scoreO = data.scoreO || 0;
+                    ties = data.ties || 0;
+                    nameX = data.nameX || 'Player X';
+                    nameO = data.nameO || 'Player O';
+
+                    nameXInput.value = nameX;
+                    nameOInput.value = nameO;
+                    updateNames();
+                    updateScores();
+                }
+            } catch (e) {}
+        }
+
+        function saveState() {
+            try {
+                const data = { scoreX, scoreO, ties, nameX, nameO };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch(e) {}
+        }
+
+        function updateNames() {
+            nameX = nameXInput.value.trim() || 'Player X';
+            nameO = nameOInput.value.trim() || 'Player O';
+            lblX.textContent = nameX;
+            lblO.textContent = nameO;
+            updateTurnText();
+            saveState();
+        }
+
+        function updateScores() {
+            scoreXEl.textContent = scoreX;
+            scoreOEl.textContent = scoreO;
+            scoreTiesEl.textContent = ties;
+        }
+
+        function updateTurnText() {
+            if (!gameActive) return;
+            statusBar.textContent = currentPlayer === 'X' 
+                ? `${nameX}'s Turn (❌)` 
+                : `${nameO}'s Turn (⭕)`;
+            statusBar.className = `status-bar status-bar--${currentPlayer.toLowerCase()}`;
+
+            if (currentPlayer === 'X') {
+                cardX.classList.add('score-card--active');
+                cardO.classList.remove('score-card--active');
+            } else {
+                cardO.classList.add('score-card--active');
+                cardX.classList.remove('score-card--active');
+            }
+        }
+
+        function handleCellClick(e) {
+            const cell = e.target;
+            const index = parseInt(cell.getAttribute('data-index'));
+
+            if (board[index] !== '' || !gameActive) return;
+
+            board[index] = currentPlayer;
+            cell.classList.add(`cell--${currentPlayer.toLowerCase()}`, 'cell--taken');
+            
+            playPlaceSound(currentPlayer === 'X');
+
+            // Draw icon inside cell
+            cell.innerHTML = currentPlayer === 'X' 
+                ? `<svg viewBox="0 0 100 100">
+                    <line x1="20" y1="20" x2="80" y2="80" class="draw-x-line1" />
+                    <line x1="80" y1="20" x2="20" y2="80" class="draw-x-line2" />
+                   </svg>`
+                : `<svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="30" class="draw-o-circle" />
+                   </svg>`;
+
+            checkResult();
+        }
+
+        function checkResult() {
+            let won = false;
+            let winningPattern = null;
+
+            for (let i = 0; i < winStates.length; i++) {
+                const [a, b, c] = winStates[i];
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    won = true;
+                    winningPattern = winStates[i];
+                    break;
+                }
+            }
+
+            if (won) {
+                gameActive = false;
+                playWinSound();
+                drawWinningLine(winningPattern);
+                
+                if (currentPlayer === 'X') {
+                    scoreX++;
+                    statusBar.textContent = `🎉 ${nameX} Wins!`;
+                    statusBar.className = 'status-bar status-bar--x';
+                } else {
+                    scoreO++;
+                    statusBar.textContent = `🎉 ${nameO} Wins!`;
+                    statusBar.className = 'status-bar status-bar--o';
+                }
+                updateScores();
+                saveState();
+                spawnConfetti();
+                return;
+            }
+
+            // Tie check
+            if (!board.includes('')) {
+                gameActive = false;
+                ties++;
+                playTieSound();
+                statusBar.textContent = `🤝 It's a Draw!`;
+                statusBar.className = 'status-bar';
+                updateScores();
+                saveState();
+                return;
+            }
+
+            // Toggle player
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            updateTurnText();
+        }
+
+        function drawWinningLine(pattern) {
+            // Map cell index to center pixel coordinates inside 300x300 overlay box
+            const coordMap = [
+                { x: 50, y: 50 },   { x: 150, y: 50 },   { x: 250, y: 50 },
+                { x: 50, y: 150 },  { x: 150, y: 150 },  { x: 250, y: 150 },
+                { x: 50, y: 250 },  { x: 150, y: 250 },  { x: 250, y: 250 }
+            ];
+
+            const start = coordMap[pattern[0]];
+            const end = coordMap[pattern[2]];
+
+            winningStrike.setAttribute('x1', start.x);
+            winningStrike.setAttribute('y1', start.y);
+            // Start line at origin
+            winningStrike.setAttribute('x2', start.x);
+            winningStrike.setAttribute('y2', start.y);
+            winningStrike.style.display = 'block';
+            winningStrike.style.stroke = currentPlayer === 'X' ? 'var(--x-color)' : 'var(--o-color)';
+            winningStrike.style.filter = currentPlayer === 'X' ? 'drop-shadow(0 0 4px var(--x-glow))' : 'drop-shadow(0 0 4px var(--o-glow))';
+
+            // Trigger reflow to animate line draw
+            winningStrike.getBoundingClientRect();
+            
+            winningStrike.setAttribute('x2', end.x);
+            winningStrike.setAttribute('y2', end.y);
+        }
+
+        function resetBoard() {
+            board = Array(9).fill('');
+            gameActive = true;
+            currentPlayer = 'X';
+            winningStrike.style.display = 'none';
+
+            cells.forEach(cell => {
+                cell.className = 'cell';
+                cell.innerHTML = '';
+            });
+
+            updateTurnText();
+        }
+
+        function spawnConfetti() {
+            const colors = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981'];
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '100vw';
+            container.style.height = '100vh';
+            container.style.pointerEvents = 'none';
+            container.style.zIndex = '999';
+            document.body.appendChild(container);
+
+            for (let i = 0; i < 60; i++) {
+                const particle = document.createElement('div');
+                particle.style.position = 'absolute';
+                particle.style.width = `${Math.random() * 8 + 6}px`;
+                particle.style.height = `${Math.random() * 8 + 6}px`;
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.left = `${Math.random() * 100}vw`;
+                particle.style.top = `-20px`;
+                particle.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                
+                // Fall animation
+                const duration = 2 + Math.random() * 2;
+                const delay = Math.random() * 1.5;
+                particle.style.transition = `transform ${duration}s linear ${delay}s, opacity ${duration}s ease ${delay}s`;
+                container.appendChild(particle);
+
+                // Start transition
+                setTimeout(() => {
+                    particle.style.transform = `translateY(110vh) rotate(${Math.random() * 360}deg)`;
+                    particle.style.opacity = '0';
+                }, 50);
+            }
+
+            setTimeout(() => container.remove(), 4500);
+        }
+
+        // Listeners
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+        nameXInput.addEventListener('input', updateNames);
+        nameOInput.addEventListener('input', updateNames);
+        btnResetBoard.addEventListener('click', resetBoard);
+
+        btnClearScores.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset the scoreboard and players?')) {
+                scoreX = 0;
+                scoreO = 0;
+                ties = 0;
+                nameXInput.value = 'Player X';
+                nameOInput.value = 'Player O';
+                updateNames();
+                updateScores();
+                resetBoard();
+            }
+        });
+
+        // Init
+        loadState();
+    </script>
+</body>
+</html>
